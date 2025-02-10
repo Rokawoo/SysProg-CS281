@@ -61,7 +61,10 @@ int main()
         // remove the trailing \n from cmd_buff
         cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
 
-        // IMPLEMENT THE REST OF THE REQUIREMENTS
+        // Check for exit command
+        if (strcmp(cmd_buff, EXIT_CMD) == 0) {
+            exit(0);
+        }
     }
 
     printf(M_NOT_IMPL);
