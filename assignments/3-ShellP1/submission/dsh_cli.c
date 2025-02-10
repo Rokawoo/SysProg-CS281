@@ -50,6 +50,23 @@ int main()
     int rc = 0;
     command_list_t clist;
 
+    while (1)
+    {
+        printf("%s", SH_PROMPT);
+        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL)
+        {
+            printf("\n");
+            break;
+        }
+        // remove the trailing \n from cmd_buff
+        cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
+
+        // Check for exit command
+        if (strcmp(cmd_buff, EXIT_CMD) == 0) {
+            exit(0);
+        }
+    }
+
     printf(M_NOT_IMPL);
     exit(EXIT_NOT_IMPL);
 }
