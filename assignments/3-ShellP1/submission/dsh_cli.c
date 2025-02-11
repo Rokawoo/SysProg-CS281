@@ -84,6 +84,5 @@ int main()
         }
     }
 
-    printf(M_NOT_IMPL);
     exit(0);
 }
