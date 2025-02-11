@@ -49,6 +49,7 @@ int main()
     char *cmd_buff;
     int rc = 0;
     command_list_t clist;
+    
 
     while (1)
     {
@@ -64,6 +65,22 @@ int main()
         // Check for exit command
         if (strcmp(cmd_buff, EXIT_CMD) == 0) {
             break;
+        }
+
+        // Parse the command
+        rc = parse_command(cmd_buff, &clist);
+
+        switch (rc) {
+            case OK:
+                printf("%s\n", CMD_OK_HEADER);
+                print_command_list(&clist);
+                break;
+            case WARN_NO_CMDS:
+                printf("%s\n", CMD_WARN_NO_CMD);
+                break;
+            case ERR_TOO_MANY_COMMANDS:
+                printf("%s\n", CMD_ERR_PIPE_LIMIT);
+                break;
         }
     }
 
