@@ -37,28 +37,36 @@ int build_cmd_list(char *cmd_line, command_list_t *clist) {
         return ERR_CMD_OR_ARGS_TOO_BIG;
     }
 
+    // Initialize command list
     memset(clist, 0, sizeof(command_list_t));
     
+    // Split commands by pipe character
     char *saveptr1;
     char *cmd = strtok_r(cmd_line, "|", &saveptr1);
     
     while (cmd) {
+        // Check command limit
         if (clist->num >= CMD_MAX) {
             return ERR_TOO_MANY_COMMANDS;
         }
 
+        // Skip leading whitespace
         while (isspace(*cmd)) cmd++;
         
+        // Parse command and arguments
         char *saveptr2;
         char *token = strtok_r(cmd, " \t\n", &saveptr2);
         if (!token) continue;
         
+        // Validate command length
         if (strlen(token) >= EXE_MAX) {
             return ERR_CMD_OR_ARGS_TOO_BIG;
         }
         
+        // Store command
         strcpy(clist->commands[clist->num].exe, token);
         
+        // Process arguments
         char args[ARG_MAX] = "";
         token = strtok_r(NULL, " \t\n", &saveptr2);
         
@@ -66,10 +74,12 @@ int build_cmd_list(char *cmd_line, command_list_t *clist) {
             size_t curr_len = strlen(args);
             size_t token_len = strlen(token);
             
+            // Validate argument length
             if (curr_len + token_len + 2 >= ARG_MAX) {
                 return ERR_CMD_OR_ARGS_TOO_BIG;
             }
             
+            // Add space between arguments
             if (curr_len > 0) {
                 strcat(args, " ");
             }
@@ -77,6 +87,7 @@ int build_cmd_list(char *cmd_line, command_list_t *clist) {
             token = strtok_r(NULL, " \t\n", &saveptr2);
         }
         
+        // Store arguments and increment command count
         strcpy(clist->commands[clist->num].args, args);
         clist->num++;
         cmd = strtok_r(NULL, "|", &saveptr1);
