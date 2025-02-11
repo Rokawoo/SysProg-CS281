@@ -63,10 +63,10 @@ int main()
 
         // Check for exit command
         if (strcmp(cmd_buff, EXIT_CMD) == 0) {
-            exit(0);
+            break;
         }
     }
 
     printf(M_NOT_IMPL);
-    exit(EXIT_NOT_IMPL);
+    exit(0);
 }
