@@ -57,22 +57,26 @@ int main() {
         }
         cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
 
-        // Check for exit command
+        // Handle exit command
         if (strcmp(cmd_buff, EXIT_CMD) == 0) {
             break;
         }
 
-        // Build the command list
+        // Parse and process command
         rc = build_cmd_list(cmd_buff, &clist);
-
-        // Handle the command list and errors
+        
+        // Handle results
         switch (rc) {
             case OK:
                 printf(CMD_OK_HEADER, clist.num);
                 for (int i = 0; i < clist.num; i++) {
-                    printf("Command %d: [%s] [%s]\n", 
-                           i, clist.commands[i].exe, 
-                           clist.commands[i].args[0] ? clist.commands[i].args : "");
+                    if (strlen(clist.commands[i].args) > 0) {
+                        printf("<%d> %s [%s]\n", i+1, 
+                               clist.commands[i].exe, 
+                               clist.commands[i].args);
+                    } else {
+                        printf("<%d> %s\n", i+1, clist.commands[i].exe);
+                    }
                 }
                 break;
             case WARN_NO_CMDS:
@@ -84,5 +88,5 @@ int main() {
         }
     }
     
-    exit(0);
+    return 0;
 }
