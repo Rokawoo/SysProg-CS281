@@ -41,9 +41,10 @@ int build_cmd_list(char *cmd_line, command_list_t *clist) {
     
     char *saveptr1;
     char *cmd = strtok_r(cmd_line, "|", &saveptr1);
+    int cmd_count = 0;
     
     while (cmd) {
-        if (clist->num_commands >= CMD_MAX) {
+        if (cmd_count >= CMD_MAX) {
             return ERR_TOO_MANY_COMMANDS;
         }
 
@@ -55,23 +56,21 @@ int build_cmd_list(char *cmd_line, command_list_t *clist) {
         if (!token) continue;
         
         // Check executable name length
-        if (strlen(token) >= MAX_LINE) {
+        if (strlen(token) >= ARG_MAX) {
             return ERR_CMD_OR_ARGS_TOO_BIG;
         }
         
-        command_t *current = &clist->commands[clist->num_commands];
-        strcpy(current->exec_name, token);
+        strcpy(clist->commands[cmd_count].cmd, token);
         
         // Build arguments string
-        char args[MAX_LINE] = "";
+        char args[ARG_MAX] = "";
         token = strtok_r(NULL, " \t\n", &saveptr2);
         
         while (token) {
             size_t curr_len = strlen(args);
             size_t token_len = strlen(token);
             
-            // Check if adding token would exceed MAX_LINE
-            if (curr_len + token_len + 2 >= MAX_LINE) {
+            if (curr_len + token_len + 2 >= ARG_MAX) {
                 return ERR_CMD_OR_ARGS_TOO_BIG;
             }
             
@@ -82,10 +81,10 @@ int build_cmd_list(char *cmd_line, command_list_t *clist) {
             token = strtok_r(NULL, " \t\n", &saveptr2);
         }
         
-        strcpy(current->args, args);
-        clist->num_commands++;
+        strcpy(clist->commands[cmd_count].args, args);
+        cmd_count++;
         cmd = strtok_r(NULL, "|", &saveptr1);
     }
     
-    return OK;
+    return cmd_count > 0 ? OK : WARN_NO_CMDS;
 }
