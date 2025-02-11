@@ -44,22 +44,17 @@
  *
  *  See the provided test cases for output expectations.
  */
-int main()
-{
-    char *cmd_buff;
+int main() {
+    char cmd_buff[SH_CMD_MAX];
     int rc = 0;
     command_list_t clist;
-    
 
-    while (1)
-    {
+    while (1) {
         printf("%s", SH_PROMPT);
-        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL)
-        {
+        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL) {
             printf("\n");
             break;
         }
-        // remove the trailing \n from cmd_buff
         cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
 
         // Check for exit command
@@ -67,22 +62,27 @@ int main()
             break;
         }
 
-        // Parse the command
-        rc = parse_command(cmd_buff, &clist);
+        // Build the command list
+        rc = build_cmd_list(cmd_buff, &clist);
 
+        // Handle the command list and errors
         switch (rc) {
             case OK:
-                printf("%s\n", CMD_OK_HEADER);
-                print_command_list(&clist);
+                printf(CMD_OK_HEADER, clist.num);
+                for (int i = 0; i < clist.num; i++) {
+                    printf("Command %d: [%s] [%s]\n", 
+                           i, clist.commands[i].exe, 
+                           clist.commands[i].args[0] ? clist.commands[i].args : "");
+                }
                 break;
             case WARN_NO_CMDS:
-                printf("%s\n", CMD_WARN_NO_CMD);
+                printf(CMD_WARN_NO_CMD);
                 break;
             case ERR_TOO_MANY_COMMANDS:
-                printf("%s\n", CMD_ERR_PIPE_LIMIT);
+                printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
                 break;
         }
     }
-
+    
     exit(0);
 }
