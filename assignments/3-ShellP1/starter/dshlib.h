@@ -27,6 +27,7 @@ typedef struct command_list
 
 #define SH_PROMPT "dsh> "
 #define EXIT_CMD "exit"
+#define DRAGON_CMD "dragon"
 
 // Standard Return Codes
 #define OK 0
@@ -46,9 +47,5 @@ int build_cmd_list(char *cmd_line, command_list_t *clist);
 #define CMD_OK_HEADER "PARSED COMMAND LINE - TOTAL COMMANDS %d\n"
 #define CMD_WARN_NO_CMD "warning: no commands provided\n"
 #define CMD_ERR_PIPE_LIMIT "error: piping limited to %d commands\n"
-
-// dragon print
-void print_dragon(void);
-#define DRAGON_CMD "dragon"
 
 #endif
