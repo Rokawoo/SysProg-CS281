@@ -65,8 +65,9 @@ int main() {
         // Handle dragon command
         if (strcmp(cmd_buff, DRAGON_CMD) == 0) {
             print_dragon();
-        continue;
-}
+            continue;
+        }
+
         // Parse and process command
         rc = build_cmd_list(cmd_buff, &clist);
         
