@@ -5,8 +5,8 @@
 
 #include "dshlib.h"
 
+// Dragon print data
 static const char CHARS[] = {' ', '%', '@', '\n'};
-
 const dragon_run_t DRAGON_DATA[] = {
     {56<<2|0}, {4<<2|2}, {1<<2|1}, {1<<2|3},
     {53<<2|0}, {6<<2|1}, {1<<2|3},
@@ -48,6 +48,7 @@ const dragon_run_t DRAGON_DATA[] = {
     {49<<2|0}, {7<<2|1}, {1<<2|3}
 };
 
+// Dragon print function
 void print_dragon(void) {
     for (size_t i = 0; i < sizeof(DRAGON_DATA)/sizeof(dragon_run_t); i++) {
         unsigned char count = DRAGON_DATA[i].data >> 2;
