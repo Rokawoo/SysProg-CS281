@@ -4,6 +4,8 @@
 
 #include "dshlib.h"
 
+void print_dragon(void); // Explicit here sinc could not resolve error: implicit declaration of function ‘print_dragon’
+
 /*
  * Implement your main function by building a loop that prompts the
  * user for input.  Use the SH_PROMPT constant from dshlib.h and then
