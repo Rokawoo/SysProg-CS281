@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 @test "Simple Command" {
-    run ./dsh <<EOF                
+    run ./dsh-submission <<EOF                
 test_command
 exit
 EOF
@@ -27,7 +27,7 @@ EOF
 }
 
 @test "Simple Command with Args" {
-    run ./dsh <<EOF                
+    run ./dsh-submission <<EOF                
 cmd -a1 -a2
 exit
 EOF
@@ -54,7 +54,7 @@ EOF
 
 
 @test "No command provided" {
-    run ./dsh <<EOF                
+    run ./dsh-submission <<EOF                
 
 exit
 EOF
@@ -80,7 +80,7 @@ EOF
 }
 
 @test "Two commands" {
-    run ./dsh <<EOF                
+    run ./dsh-submission <<EOF                
 command_one | command_two
 exit
 EOF
@@ -106,7 +106,7 @@ EOF
 }
 
 @test "three commands with args" {
-    run ./dsh <<EOF                
+    run ./dsh-submission <<EOF                
 cmd1 a1 a2 a3 | cmd2 a4 a5 a6 | cmd3 a7 a8 a9
 exit
 EOF
@@ -132,7 +132,7 @@ EOF
 }
 
 @test "try max (8) commands" {
-    run ./dsh <<EOF                
+    run ./dsh-submission <<EOF                
 cmd1 | cmd2 | cmd3 | cmd4 | cmd5 | cmd6 | cmd7 | cmd8
 exit
 EOF
@@ -158,7 +158,7 @@ EOF
 }
 
 @test "try too many commands" {
-    run ./dsh <<EOF                
+    run ./dsh-submission <<EOF                
 cmd1 | cmd2 | cmd3 | cmd4 | cmd5 | cmd6 | cmd7 | cmd8 | cmd9
 exit
 EOF
@@ -184,7 +184,7 @@ EOF
 }
 
 @test "kitchen sink - multiple commands" {
-    run ./dsh <<EOF                
+    run ./dsh-submission <<EOF                
 cmd1
 cmd2 arg arg2
 p1 | p2
