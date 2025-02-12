@@ -5,9 +5,6 @@
 typedef struct {
     unsigned char data;  // count << 2 | char_type
 } dragon_run_t;
-
-extern const char CHARS[];
-extern const dragon_run_t DRAGON_DATA[];
 void print_dragon(void);
 
 // Constants for command structure sizes

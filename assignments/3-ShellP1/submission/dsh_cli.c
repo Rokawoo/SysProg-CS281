@@ -66,7 +66,7 @@ int main() {
         }
 
         // Handle dragon command
-        if (strcmp(cmd_buff, "dragon") == 0) { // Used raw string since could not resolve error: ‘DRAGON_CMD’ undeclared
+        if (strcmp(cmd_buff, DRAGON_CMD) == 0) { // Used raw string since could not resolve error: ‘DRAGON_CMD’ undeclared
             print_dragon();
             continue;
         }
