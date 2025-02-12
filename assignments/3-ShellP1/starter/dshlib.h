@@ -50,8 +50,5 @@ int build_cmd_list(char *cmd_line, command_list_t *clist);
 // dragon print
 void print_dragon(void);
 #define DRAGON_CMD "dragon"
-typedef struct {
-    unsigned char data;  // count << 2 | char_type
-} dragon_run_t;
 
 #endif

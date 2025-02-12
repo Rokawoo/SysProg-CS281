@@ -6,7 +6,12 @@
 #include "dshlib.h"
 
 // Dragon print data
+typedef struct {
+    unsigned char data;  // count << 2 | char_type
+} dragon_run_t;
+
 static const char CHARS[] = {' ', '%', '@', '\n'};
+
 const dragon_run_t DRAGON_DATA[] = {
     {56<<2|0}, {4<<2|2}, {1<<2|1}, {1<<2|3},
     {53<<2|0}, {6<<2|1}, {1<<2|3},
