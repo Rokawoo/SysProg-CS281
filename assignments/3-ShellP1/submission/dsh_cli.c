@@ -32,6 +32,7 @@
  *      OK                      the command was parsed properly
  *      WARN_NO_CMDS            the user command was empty
  *      ERR_TOO_MANY_COMMANDS   too many pipes used
+ *      DRAGON_CMD              constant that prints a dragon
  *
  *   Expected output:
  *
