@@ -101,14 +101,7 @@ int exec_local_cmd_loop() {
             if (strlen(token) >= EXE_MAX) {
                 return ERR_CMD_OR_ARGS_TOO_BIG
             }
-        
-
-
         }
-
-
-
-
     }
 
     // TODO IMPLEMENT MAIN LOOP
