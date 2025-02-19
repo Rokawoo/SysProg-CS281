@@ -51,72 +51,46 @@
  *  Standard Library Functions You Might Want To Consider Using (assignment 2+)
  *      fork(), execvp(), exit(), chdir()
  */
-int exec_local_cmd_loop()
-{
+int exec_local_cmd_loop() {
     char *cmd_buff;
     int rc = 0;
     cmd_buff_t cmd;
 
-    
-    while (1) {
+    while(1) {
         printf("%s", SH_PROMPT);
         if (fgets(cmd_buff, ARG_MAX, stdin) == NULL) {
             printf("\n");
             break;
         }
-        cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
+        //remove the trailing \n from cmd_buff
+        cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
 
-        // Handle exit command
-        if (strcmp(cmd_buff, EXIT_CMD) == 0) {
-            break;
+        // Checks
+        if (!cmd_buff) {
+            return ERR_CMD_OR_ARGS_TOO_BIG;
         }
 
-        // Handle dragon command
-        if (strcmp(cmd_buff, DRAGON_CMD) == 0) { 
-            print_dragon();
+        if (strlen(cmd_buff) == 0) {
+            printf("%s\n", CMD_WARN_NO_CMD);
             continue;
         }
 
-        // Parse and process command
-        rc = build_cmd_list(cmd_buff, &clist);
-        
-        // Handle results
-        switch (rc) {
-            case OK:
-                fo
-                break;
-            case WARN_NO_CMDS:
-                printf(CMD_WARN_NO_CMD);
-                break;
-            case ERR_TOO_MANY_COMMANDS:
-                printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
-                break;
+        if (strncmp(cmd_buff, EXIT_CMD, strlen(EXIT_CMD)) == 0) {
+            break;
         }
+
+        if (strncmp(cmd_buff, DRAGON_CMD, strlen(DRAGON_CMD)) == 0)  {
+            print_dragon();
+            break;
+        }
+
+        // Parsing
+
+
+
+
+
     }
-    //     switch (rc) {
-    //         case OK:
-    //             printf(CMD_OK_HEADER, clist.num);
-    //             for (int i = 0; i < clist.num; i++) {
-    //                 if (strlen(clist.commands[i].args) > 0) {
-    //                     printf("<%d> %s [%s]\n", i+1, 
-    //                            clist.commands[i].exe, 
-    //                            clist.commands[i].args);
-    //                 } else {
-    //                     printf("<%d> %s\n", i+1, clist.commands[i].exe);
-    //                 }
-    //             }
-    //             break;
-    //         case WARN_NO_CMDS:
-    //             printf(CMD_WARN_NO_CMD);
-    //             break;
-    //         case ERR_TOO_MANY_COMMANDS:
-    //             printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
-    //             break;
-    //     }
-    // }
-    
-    return 0;
-}
 
     // TODO IMPLEMENT MAIN LOOP
 
@@ -130,5 +104,3 @@ int exec_local_cmd_loop()
 
     return OK;
 }
-
-
