@@ -2,9 +2,6 @@
     #define __DSHLIB_H__
 
 // Dragon Print
-typedef struct {
-    unsigned char data;  // count << 2 | char_type
-} dragon_run_t;
 void print_dragon(void);
 
 //Constants for command structure sizes

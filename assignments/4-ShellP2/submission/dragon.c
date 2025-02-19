@@ -2,6 +2,10 @@
 
 // EXTRA CREDIT - print the drexel dragon from the readme.md
 // Dragon print data
+typedef struct {
+    unsigned char data;  // count << 2 | char_type
+} dragon_run_t;
+
 static const char CHARS[] = {' ', '%', '@', '\n'};
 
 const dragon_run_t DRAGON_DATA[] = {
