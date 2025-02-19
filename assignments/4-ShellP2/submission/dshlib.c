@@ -85,7 +85,26 @@ int exec_local_cmd_loop() {
         }
 
         // Parsing
+        char *saveptr1
+        char *cmd = strtok_r(cmd_buff, "|", &saveptr1)
 
+        while(cmd) {
+            // Skip leading whitespace
+            while (isspace(*cmd)) cmd++;
+
+            // Parse command and arguments
+            char *saveptr2;
+            char *token = strtok_r(cmd, " \t\n", &saveptr2);
+            if (!token) continue;
+
+            // Validate command length
+            if (strlen(token) >= EXE_MAX) {
+                return ERR_CMD_OR_ARGS_TOO_BIG
+            }
+        
+
+
+        }
 
 
 
