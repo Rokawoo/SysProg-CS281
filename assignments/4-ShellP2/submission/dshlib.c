@@ -85,23 +85,43 @@ int exec_local_cmd_loop() {
         }
 
         // Parsing
-        char *saveptr1
-        char *cmd = strtok_r(cmd_buff, "|", &saveptr1)
-
         while(cmd) {
             // Skip leading whitespace
             while (isspace(*cmd)) cmd++;
 
             // Parse command and arguments
-            char *saveptr2;
-            char *token = strtok_r(cmd, " \t\n", &saveptr2);
+            char *saveptr;
+            char *token = strtok_r(cmd, " \t\n", &saveptr);
             if (!token) continue;
 
             // Validate command length
             if (strlen(token) >= EXE_MAX) {
                 return ERR_CMD_OR_ARGS_TOO_BIG
             }
-        }
+
+
+                // Process arguments
+            char args[ARG_MAX] = "";
+            token = strtok_r(NULL, " \t\n", &saveptr);
+
+            while (token) {
+                size_t curr_len = strlen(args);
+                size_t token_len = strlen(token);
+
+                // Validate argument length
+                if (curr_len + token_len + 2 >= ARG_MAX) {
+                    return ERR_CMD_OR_ARGS_TOO_BIG;
+                }
+
+                // Add space between arguments
+                if (curr_len > 0) {
+                    strcat(args, " ");
+                }
+                            
+                strcat(args, token);
+                token = strtok_r(NULL, " \t\n", &saveptr2);
+            }   
+        
     }
 
     // TODO IMPLEMENT MAIN LOOP
