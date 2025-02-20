@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <errno.h>
 #include "dshlib.h"
 
 /*
@@ -51,13 +52,12 @@
  *  Standard Library Functions You Might Want To Consider Using (assignment 2+)
  *      fork(), execvp(), exit(), chdir()
  */
-// Global variable to track last command's return code
+// Track last command's return code
 int last_return_code = 0;
 
 int exec_local_cmd_loop() {
     char cmd_buff[SH_CMD_MAX];
     cmd_buff_t cmd;
-    int rc = 0;
 
     while(1) {
         printf("%s", SH_PROMPT);
@@ -208,7 +208,7 @@ int exec_local_cmd_loop() {
                     printf("Argument list too long\n");
                     break;
                 default:
-                    printf("%s\n", ERR_EXEC_CMD);
+                    printf("%s\n", CMD_ERR_EXECUTE);
             }
             exit(errno); // Return errno as status code
         } else {
