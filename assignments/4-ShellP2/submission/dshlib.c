@@ -91,34 +91,44 @@ int exec_local_cmd_loop() {
 
         // Parse command and arguments
         char *input = cmd._cmd_buffer;
-        char *token;
-        bool in_quotes = false;
         int arg_idx = 0;
-        char *curr_arg = NULL;
+        bool in_quotes = false;
+        char *start = input;
         
         // Skip leading whitespace
-        while (isspace(*input)) input++;
+        while (*start && isspace(*start)) start++;
         
-        // Parse command and arguments handling quoted strings
-        curr_arg = input;
+        char *p = start;
+        char *token_start = p;
         
-        for (; *input; input++) {
-            if (*input == '"') {
+        while (*p) {
+            if (*p == '"') {
+                // Toggle quote state
                 in_quotes = !in_quotes;
-            } else if (isspace(*input) && !in_quotes) {
-                *input = '\0';
-                if (strlen(curr_arg) > 0 && arg_idx < CMD_ARGV_MAX) {
-                    cmd.argv[arg_idx++] = curr_arg;
-                }
-                curr_arg = input + 1;
-                // Skip consecutive spaces
-                while (*(input+1) && isspace(*(input+1))) input++;
+                p++;
+                continue;
             }
+            
+            if (isspace(*p) && !in_quotes) {
+                // End of token
+                if (p > token_start) {
+                    *p = '\0';
+                    if (arg_idx < CMD_ARGV_MAX) {
+                        cmd.argv[arg_idx++] = token_start;
+                    }
+                }
+                
+                // Skip multiple spaces
+                while (*(p+1) && isspace(*(p+1)) && !in_quotes) p++;
+                
+                token_start = p + 1;
+            }
+            p++;
         }
         
-        // Add the last argument if not empty
-        if (strlen(curr_arg) > 0 && arg_idx < CMD_ARGV_MAX) {
-            cmd.argv[arg_idx++] = curr_arg;
+        // Add the last argument if there is one
+        if (p > token_start && arg_idx < CMD_ARGV_MAX) {
+            cmd.argv[arg_idx++] = token_start;
         }
         
         cmd.argc = arg_idx;
@@ -128,6 +138,22 @@ int exec_local_cmd_loop() {
             free(cmd._cmd_buffer);
             printf("%s\n", CMD_WARN_NO_CMD);
             continue;
+        }
+
+        // Process quoted strings within arguments
+        for (int i = 0; i < cmd.argc; i++) {
+            char *arg = cmd.argv[i];
+            // If argument starts with a quote
+            if (arg[0] == '"') {
+                // Remove starting quote
+                memmove(arg, arg + 1, strlen(arg));
+                
+                // Find and remove ending quote if it exists
+                size_t len = strlen(arg);
+                if (len > 0 && arg[len - 1] == '"') {
+                    arg[len - 1] = '\0';
+                }
+            }
         }
 
         // Handle built-in cd command
