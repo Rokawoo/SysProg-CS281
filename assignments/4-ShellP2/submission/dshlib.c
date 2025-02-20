@@ -51,6 +51,9 @@
  *  Standard Library Functions You Might Want To Consider Using (assignment 2+)
  *      fork(), execvp(), exit(), chdir()
  */
+// Global variable to track last command's return code
+int last_return_code = 0;
+
 int exec_local_cmd_loop() {
     char cmd_buff[SH_CMD_MAX];
     cmd_buff_t cmd;
@@ -62,7 +65,7 @@ int exec_local_cmd_loop() {
             printf("\n");
             break;
         }
-        //remove the trailing \n from cmd_buff
+        // Remove the trailing \n from cmd_buff
         cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
 
         // Skip empty commands
@@ -79,6 +82,13 @@ int exec_local_cmd_loop() {
         // Handle dragon command (extra credit from previous assignment)
         if (strncmp(cmd_buff, DRAGON_CMD, strlen(DRAGON_CMD)) == 0) {
             print_dragon();
+            last_return_code = 0;
+            continue;
+        }
+        
+        // Extra credit: Handle rc command
+        if (strcmp(cmd_buff, "rc") == 0) {
+            printf("%d\n", last_return_code);
             continue;
         }
 
@@ -140,7 +150,7 @@ int exec_local_cmd_loop() {
             continue;
         }
 
-        // Process quoted strings within arguments
+        // Process quoted strings inside arguments
         for (int i = 0; i < cmd.argc; i++) {
             char *arg = cmd.argv[i];
             // If argument starts with a quote
@@ -156,11 +166,14 @@ int exec_local_cmd_loop() {
             }
         }
 
-        // Handle built-in cd command
+        // Handle our cd command
         if (strcmp(cmd.argv[0], "cd") == 0) {
             if (cmd.argc > 1) {
                 if (chdir(cmd.argv[1]) != 0) {
                     perror("cd");
+                    last_return_code = errno;
+                } else {
+                    last_return_code = 0;
                 }
             }
             free(cmd._cmd_buffer);
@@ -173,19 +186,42 @@ int exec_local_cmd_loop() {
         if (pid < 0) {
             // Fork failed
             perror("fork");
+            last_return_code = errno;
             free(cmd._cmd_buffer);
             continue;
         } else if (pid == 0) {
             // Child process
             execvp(cmd.argv[0], cmd.argv);
-            // If execvp returns, it failed
-            printf("%s\n", ERR_EXEC_CMD);
-            exit(1);
+            
+            // Extra credit: handle specific error cases
+            switch (errno) {
+                case ENOENT:
+                    printf("Command not found in PATH\n");
+                    break;
+                case EACCES:
+                    printf("Permission denied\n");
+                    break;
+                case ENOMEM:
+                    printf("Out of memory\n");
+                    break;
+                case E2BIG:
+                    printf("Argument list too long\n");
+                    break;
+                default:
+                    printf("%s\n", ERR_EXEC_CMD);
+            }
+            exit(errno); // Return errno as status code
         } else {
             // Parent process
             int status;
             waitpid(pid, &status, 0);
-            // Could extract exit status with WEXITSTATUS(status) for extra credit
+            
+            // Extra credit: extract exit status
+            if (WIFEXITED(status)) {
+                last_return_code = WEXITSTATUS(status);
+            } else {
+                last_return_code = -1;
+            }
         }
 
         free(cmd._cmd_buffer);
@@ -193,18 +229,3 @@ int exec_local_cmd_loop() {
 
     return OK;
 }
-
-    /*
-    */
-    // TODO IMPLEMENT MAIN LOOP
-
-    // TODO IMPLEMENT parsing input to cmd_buff_t *cmd_buff
-
-    // TODO IMPLEMENT if built-in command, execute builtin logic for exit, cd (extra credit: dragon)
-    // the cd command should chdir to the provided directory; if no directory is provided, do nothing
-
-    // TODO IMPLEMENT if not built-in command, fork/exec as an external command
-    // for example, if the user input is "ls -l", you would fork/exec the command "ls" with the arg "-l"
-
-    //return OK;
-
