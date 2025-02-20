@@ -52,78 +52,124 @@
  *      fork(), execvp(), exit(), chdir()
  */
 int exec_local_cmd_loop() {
-    char *cmd_buff;
-    int rc = 0;
+    char cmd_buff[SH_CMD_MAX];
     cmd_buff_t cmd;
+    int rc = 0;
 
     while(1) {
         printf("%s", SH_PROMPT);
-        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL) {
+        if (fgets(cmd_buff, SH_CMD_MAX, stdin) == NULL) {
             printf("\n");
             break;
         }
         //remove the trailing \n from cmd_buff
         cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
 
-        // Checks
-        if (!cmd_buff) {
-            return ERR_CMD_OR_ARGS_TOO_BIG;
-        }
-
+        // Skip empty commands
         if (strlen(cmd_buff) == 0) {
             printf("%s\n", CMD_WARN_NO_CMD);
             continue;
         }
 
+        // Handle exit command
         if (strncmp(cmd_buff, EXIT_CMD, strlen(EXIT_CMD)) == 0) {
             break;
         }
 
-        if (strncmp(cmd_buff, DRAGON_CMD, strlen(DRAGON_CMD)) == 0)  {
+        // Handle dragon command (extra credit from previous assignment)
+        if (strncmp(cmd_buff, DRAGON_CMD, strlen(DRAGON_CMD)) == 0) {
             print_dragon();
-            break;
+            continue;
         }
 
-        // Parsing
-        while(cmd) {
-            // Skip leading whitespace
-            while (isspace(*cmd)) cmd++;
+        // Initialize cmd structure
+        memset(&cmd, 0, sizeof(cmd_buff_t));
+        cmd._cmd_buffer = strdup(cmd_buff);
+        if (!cmd._cmd_buffer) {
+            return ERR_MEMORY;
+        }
 
-            // Parse command and arguments
-            char *saveptr;
-            char *token = strtok_r(cmd, " \t\n", &saveptr);
-            if (!token) continue;
-
-            // Validate command length
-            if (strlen(token) >= EXE_MAX) {
-                return ERR_CMD_OR_ARGS_TOO_BIG
-            }
-
-
-                // Process arguments
-            char args[ARG_MAX] = "";
-            token = strtok_r(NULL, " \t\n", &saveptr);
-
-            while (token) {
-                size_t curr_len = strlen(args);
-                size_t token_len = strlen(token);
-
-                // Validate argument length
-                if (curr_len + token_len + 2 >= ARG_MAX) {
-                    return ERR_CMD_OR_ARGS_TOO_BIG;
-                }
-
-                // Add space between arguments
-                if (curr_len > 0) {
-                    strcat(args, " ");
-                }
-                            
-                strcat(args, token);
-                token = strtok_r(NULL, " \t\n", &saveptr2);
-            }   
+        // Parse command and arguments
+        char *input = cmd._cmd_buffer;
+        char *token;
+        bool in_quotes = false;
+        int arg_idx = 0;
+        char *curr_arg = NULL;
         
+        // Skip leading whitespace
+        while (isspace(*input)) input++;
+        
+        // Parse command and arguments handling quoted strings
+        curr_arg = input;
+        
+        for (; *input; input++) {
+            if (*input == '"') {
+                in_quotes = !in_quotes;
+            } else if (isspace(*input) && !in_quotes) {
+                *input = '\0';
+                if (strlen(curr_arg) > 0 && arg_idx < CMD_ARGV_MAX) {
+                    cmd.argv[arg_idx++] = curr_arg;
+                }
+                curr_arg = input + 1;
+                // Skip consecutive spaces
+                while (*(input+1) && isspace(*(input+1))) input++;
+            }
+        }
+        
+        // Add the last argument if not empty
+        if (strlen(curr_arg) > 0 && arg_idx < CMD_ARGV_MAX) {
+            cmd.argv[arg_idx++] = curr_arg;
+        }
+        
+        cmd.argc = arg_idx;
+        
+        // Handle empty command after parsing
+        if (cmd.argc == 0) {
+            free(cmd._cmd_buffer);
+            printf("%s\n", CMD_WARN_NO_CMD);
+            continue;
+        }
+
+        // Handle built-in cd command
+        if (strcmp(cmd.argv[0], "cd") == 0) {
+            if (cmd.argc > 1) {
+                if (chdir(cmd.argv[1]) != 0) {
+                    perror("cd");
+                }
+            }
+            free(cmd._cmd_buffer);
+            continue;
+        }
+
+        // Execute external command using fork/exec
+        pid_t pid = fork();
+        
+        if (pid < 0) {
+            // Fork failed
+            perror("fork");
+            free(cmd._cmd_buffer);
+            continue;
+        } else if (pid == 0) {
+            // Child process
+            execvp(cmd.argv[0], cmd.argv);
+            // If execvp returns, it failed
+            printf("%s\n", ERR_EXEC_CMD);
+            exit(1);
+        } else {
+            // Parent process
+            int status;
+            waitpid(pid, &status, 0);
+            // Could extract exit status with WEXITSTATUS(status) for extra credit
+        }
+
+        free(cmd._cmd_buffer);
     }
 
+    return OK;
+}
+
+    /*
+    */
     // TODO IMPLEMENT MAIN LOOP
 
     // TODO IMPLEMENT parsing input to cmd_buff_t *cmd_buff
@@ -134,5 +180,5 @@ int exec_local_cmd_loop() {
     // TODO IMPLEMENT if not built-in command, fork/exec as an external command
     // for example, if the user input is "ls -l", you would fork/exec the command "ls" with the arg "-l"
 
-    return OK;
-}
+    //return OK;
+

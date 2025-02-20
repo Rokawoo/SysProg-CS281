@@ -3,6 +3,7 @@
 
 // Dragon Print
 void print_dragon(void);
+#define DRAGON_CMD "dragon"
 
 //Constants for command structure sizes
 #define EXE_MAX 64
