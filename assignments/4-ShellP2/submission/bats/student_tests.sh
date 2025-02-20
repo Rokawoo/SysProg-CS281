@@ -2,155 +2,176 @@
 
 # File: student_tests.sh
 
-@test "Example: check ls runs without errors" {
+@test "Basic external command execution" {
     run ./dsh <<EOF                
 ls
+exit
 EOF
-
-    # Assertions
     [ "$status" -eq 0 ]
+    [[ "$output" == *"dsh"* ]] || [[ "$output" == *"bats"* ]]
 }
 
-@test "Test nonexistent command handling" {
-    # Skip this test as the error message format varies
-    skip "Error message format varies by implementation"
-    
+@test "Command with arguments" {
     run ./dsh <<EOF
-nonexistentcommand
+echo testing multiple arguments
+exit
 EOF
-
-    # The command should fail but the shell should continue
     [ "$status" -eq 0 ]
+    [[ "$output" == *"testing multiple arguments"* ]]
 }
 
-@test "Test cd with valid directory" {
-    current=$(pwd)
-    
+@test "Empty command handling" {
+    run ./dsh <<EOF
+
+exit
+EOF
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"warning: no commands provided"* ]]
+}
+
+@test "Quoted arguments preservation" {
+    run ./dsh <<EOF
+echo "hello   spaced   world"
+exit
+EOF
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"hello   spaced   world"* ]]
+}
+
+@test "Multiple quoted arguments" {
+    run ./dsh <<EOF
+echo "first quoted" "second quoted"
+exit
+EOF
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"first quoted second quoted"* ]]
+}
+
+@test "Mixed quoted and unquoted arguments" {
+    run ./dsh <<EOF
+echo regular "quoted stuff" more_regular
+exit
+EOF
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"regular quoted stuff more_regular"* ]]
+}
+
+@test "Leading and trailing spaces" {
+    run ./dsh <<EOF
+   echo trim spaces   
+exit
+EOF
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"trim spaces"* ]]
+    [[ "$output" != *"   echo"* ]]
+}
+
+@test "cd with valid directory" {
     run ./dsh <<EOF
 cd /tmp
 pwd
+exit
 EOF
-
-    # Shell should exit cleanly
     [ "$status" -eq 0 ]
-    
-    # Output should contain /tmp
     [[ "$output" == *"/tmp"* ]]
 }
 
-@test "Test cd with invalid directory" {
-    run ./dsh <<EOF
-cd /nonexistentdirectory123456
-EOF
-
-    # Shell should continue despite invalid directory
-    [ "$status" -eq 0 ]
-    
-    # Should show some kind of error (implementation dependent)
-    [[ "$output" == *"No such file"* ]] || [[ "$output" == *"cannot"* ]] || [[ "$output" == *"error"* ]] || [[ "$output" == *"failed"* ]]
-}
-
-@test "Test cd with no arguments" {
-    # Get current directory for comparison
-    current_dir=$(pwd)
-    
+@test "cd with no arguments" {
+    starting_dir=$(pwd)
     run ./dsh <<EOF
 cd
 pwd
-EOF
-
-    # Shell should exit cleanly
-    [ "$status" -eq 0 ]
-    
-    # Current directory should not change (but we don't check exact output)
-    [ "$status" -eq 0 ]
-}
-
-@test "Test exit command" {
-    run ./dsh <<EOF
 exit
 EOF
-
-    # Shell should exit cleanly
     [ "$status" -eq 0 ]
+    # Verify pwd shows we're still in the same directory
+    [[ "$output" == *"$starting_dir"* ]] || [[ "$output" != *"/tmp"* ]]
 }
 
-@test "Test command with multiple arguments" {
+@test "cd with invalid directory" {
     run ./dsh <<EOF
-echo hello world testing
+cd /nonexistent_directory_12345
+exit
 EOF
-
-    # Shell should exit cleanly
     [ "$status" -eq 0 ]
+    [[ "$output" == *"No such file"* ]] || [[ "$output" == *"cannot"* ]] || [[ "$output" == *"cd:"* ]]
+}
+
+@test "exit command works" {
+    run ./dsh <<EOF
+exit
+echo "This should not execute"
+EOF
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"This should not execute"* ]]
+}
+
+# Extra credit tests
+@test "Command not found error handling" {
+    run ./dsh <<EOF
+nonexistentcommand123
+rc
+exit
+EOF
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Command not found"* ]] || [[ "$output" == *"not found"* ]]
+    [[ "$output" == *"2"* ]] # ENOENT is typically 2
+}
+
+@test "rc command shows successful execution" {
+    run ./dsh <<EOF
+echo success
+rc
+exit
+EOF
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"success"* ]]
+    [[ "$output" == *"0"* ]]
+}
+
+@test "rc command persists between commands" {
+    run ./dsh <<EOF
+nonexistentcommand123
+rc
+echo test
+rc
+exit
+EOF
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"2"* ]] # First rc after failed command
+    [[ "$output" == *"0"* ]] # Second rc after successful command
+}
+
+@test "Permission denied error handling" {
+    # Create a non-executable file
+    touch /tmp/non_executable_test_file
+    chmod -x /tmp/non_executable_test_file
     
-    # Output should contain the echoed text
-    [[ "$output" == *"hello world testing"* ]]
-}
-
-@test "Test complex quoted arguments" {
     run ./dsh <<EOF
-echo "hello   spaced   world" regular "more   spaces"
+/tmp/non_executable_test_file
+rc
+exit
 EOF
-
-    # Shell should exit cleanly
-    [ "$status" -eq 0 ]
+    # Clean up
+    rm -f /tmp/non_executable_test_file
     
-    # Output should preserve spaces in quotes
-    [[ "$output" == *"hello   spaced   world regular more   spaces"* ]]
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Permission denied"* ]] || [[ "$output" == *"cannot"* ]]
+    [[ "$output" == *"13"* ]] # EACCES is typically 13
 }
 
-@test "Test empty command" {
+@test "Complex error code sequence" {
     run ./dsh <<EOF
-
+echo first_success
+rc
+nonexistentcommand
+rc
+echo second_success
+rc
+exit
 EOF
-
-    # Shell should exit cleanly
     [ "$status" -eq 0 ]
-    
-    # Should handle empty command gracefully
-    [[ "$output" != *"Segmentation fault"* ]]
-}
-
-@test "Test command with many arguments" {
-    # Skip this test as the output format varies
-    skip "Output format varies by implementation"
-    
-    run ./dsh <<EOF
-echo arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-EOF
-
-    # Just test that the shell doesn't crash with many arguments
-    [ "$status" -eq 0 ]
-}
-
-@test "Test command with input/output redirection" {
-    # This is testing that the shell doesn't crash with redirection
-    # Full redirection implementation isn't required for this assignment
-    run ./dsh <<EOF
-echo test > /dev/null
-EOF
-
-    # Shell should continue even if redirection isn't implemented
-    [ "$status" -eq 0 ]
-}
-
-@test "Test nested quotes handling" {
-    run ./dsh <<EOF
-echo "outer \"inner\" quotes"
-EOF
-
-    # Shell should exit cleanly
-    [ "$status" -eq 0 ]
-}
-
-@test "Test command execution with environmental variables" {
-    run ./dsh <<EOF
-echo $HOME
-EOF
-
-    # Shell should exit cleanly
-    [ "$status" -eq 0 ]
-    
-    # Should show $HOME literally or the actual home path
-    [[ "$output" == *"$HOME"* ]] || [[ "$output" == *"/"* ]]
+    [[ "$output" == *"0"* ]] # After first echo
+    [[ "$output" == *"2"* ]] # After nonexistent command (ENOENT)
+    [[ "$output" == *"0"* ]] # After second echo
 }
