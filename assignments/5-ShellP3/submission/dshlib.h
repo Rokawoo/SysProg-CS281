@@ -1,6 +1,8 @@
 #ifndef __DSHLIB_H__
     #define __DSHLIB_H__
 
+#include <stdbool.h>  /* Added for bool type */
+
 // Dragon Print
 void print_dragon(void);
 #define DRAGON_CMD "dragon"
