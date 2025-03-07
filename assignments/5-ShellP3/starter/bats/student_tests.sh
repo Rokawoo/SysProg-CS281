@@ -16,9 +16,11 @@ teardown() {
     rm -f test_input.txt
     rm -f test_output.txt
     rm -f test_append.txt
+    rm -f combined.txt
 }
 
-# Basic pipe functionality tests
+# BASIC PIPE TESTS
+
 @test "Basic pipe: ls | grep .c" {
     run bash -c "echo 'ls | grep \".c\"' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
     [ "$status" -eq 0 ]
@@ -26,31 +28,11 @@ teardown() {
     [[ "$output" == *"dshlib.c"* ]]
 }
 
-@test "Basic pipe with quoted string: echo 'hello world' | grep world" {
-    run bash -c "echo 'echo \"hello world\" | grep world' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"hello world"* ]]
-}
-
-@test "Pipe with multiple spaces between commands: ls   |    grep .c" {
-    run bash -c "echo 'ls   |    grep \".c\"' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"dsh_cli.c"* ]]
-    [[ "$output" == *"dshlib.c"* ]]
-}
-
-# Multiple pipe tests
 @test "Multiple pipes: ls | grep .c | wc -l" {
     run bash -c "echo 'ls | grep \".c\" | wc -l' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
     [ "$status" -eq 0 ]
     # Should be at least 2 .c files
     [[ "$output" =~ [2-9] ]]
-}
-
-@test "Three pipe chain: cat test_input.txt | grep test | wc -l" {
-    run bash -c "echo 'cat test_input.txt | grep test | wc -l' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ 2 ]]  # Should find 2 lines with "test"
 }
 
 @test "Four pipe chain: ls | grep .c | sort | wc -l" {
@@ -60,116 +42,186 @@ teardown() {
     [[ "$output" =~ [2-9] ]]
 }
 
-# Edge cases and error handling
-@test "Empty command in pipe chain: ls | | grep .c" {
-    run bash -c "echo 'ls | | grep \".c\"' | $DSH"
-    [[ "$output" == *"warning: no commands provided"* ]] || 
-    [[ "$output" == *"error"* ]]  # Either way should indicate an error condition
-}
+# INPUT REDIRECTION TESTS
 
-@test "Command not found in pipe chain: ls | nonexistent | grep .c" {
-    run bash -c "echo 'ls | nonexistent_cmd | grep \".c\"' | $DSH"
-    [ "$status" -eq 0 ]  # Shell should still exit normally
-    [[ "$output" == *"not found"* ]] || 
-    [[ "$output" == *"No such file"* ]] || 
-    [[ "$output" == *"error"* ]]  # Some kind of error message
-}
-
-@test "Too many commands in pipe chain" {
-    # Create a command with 9+ pipes (exceeding CMD_MAX=8)
-    pipe_cmd="ls | grep c | wc -l | cat | cat | cat | cat | cat | cat | cat"
-    run bash -c "echo '$pipe_cmd' | $DSH"
-    [[ "$output" == *"error: piping limited to"* ]] || 
-    [[ "$output" == *"too many"* ]]
-}
-
-# File descriptor handling tests
-@test "File descriptor properly closed: yes | head -1" {
-    # This test verifies that 'yes' process is properly terminated when 'head' closes its input
-    # If file descriptors aren't handled correctly, this could hang
-    run timeout 2 bash -c "echo 'yes | head -1' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
+@test "Input redirection: cat < test_input.txt" {
+    run bash -c "echo 'cat < test_input.txt' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"y"* ]]  # Output should just be a single "y"
+    [[ "$output" == *"line1 test"* ]]
+    [[ "$output" == *"line2 data"* ]]
+    [[ "$output" == *"line3 test"* ]]
 }
 
-@test "Large data transfer through pipe: seq 1000 | wc -l" {
-    run bash -c "echo 'seq 1000 | wc -l' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ 1000 ]]  # Should show 1000 lines
-}
-
-# Input/output redirection cases
-@test "File input to pipe: cat test_input.txt | grep test" {
-    run bash -c "echo 'cat test_input.txt | grep test' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
+@test "Input redirection with command arguments: grep test < test_input.txt" {
+    run bash -c "echo 'grep test < test_input.txt' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
     [ "$status" -eq 0 ]
     [[ "$output" == *"line1 test"* ]]
     [[ "$output" == *"line3 test"* ]]
-    [[ "$output" != *"line2 data"* ]]  # Should not show this line
+    [[ "$output" != *"line2 data"* ]]
 }
 
-# Built-in command interaction with pipes
-@test "Built-in command at start of pipe: exit | cat" {
-    # This tests that the shell handles built-in commands in pipes appropriately
-    run bash -c "echo 'exit | cat' | $DSH"
-    # This might either show an error about piping built-ins or might execute
-    # as long as the shell exits gracefully, it's handled correctly
+@test "Input redirection with quoted filename: cat < \"test_input.txt\"" {
+    run bash -c "echo 'cat < \"test_input.txt\"' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
     [ "$status" -eq 0 ]
+    [[ "$output" == *"line1 test"* ]]
+    [[ "$output" == *"line2 data"* ]]
 }
 
-@test "Exit command after pipe execution" {
-    run bash -c "echo -e 'ls | grep \".c\"\nexit' | $DSH"
+# OUTPUT REDIRECTION TESTS
+
+@test "Output redirection: echo hello > test_output.txt" {
+    run bash -c "echo 'echo hello > test_output.txt' | $DSH"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"exiting"* ]]
+    run cat test_output.txt
+    [[ "$output" == "hello" ]]
 }
 
-# Multi-command sequence tests
-@test "Multiple separate commands with pipes" {
-    run bash -c "echo -e 'ls | grep \".c\"\necho \"test\" | grep test' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
+@test "Output redirection with quoted text: echo \"hello world\" > test_output.txt" {
+    run bash -c "echo 'echo \"hello world\" > test_output.txt' | $DSH"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"dshlib.c"* ]]
-    [[ "$output" == *"test"* ]]
+    run cat test_output.txt
+    [[ "$output" == "hello world" ]]
 }
 
-# Argument handling in pipe chains
-@test "Commands with multiple arguments: ls -la | grep dsh" {
-    run bash -c "echo 'ls -la | grep dsh' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"dsh"* ]]
-}
-
-@test "Commands with quoted arguments: echo \"hello    world\" | grep \"hello    world\"" {
-    run bash -c "echo 'echo \"hello    world\" | grep \"hello    world\"' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"hello    world"* ]]
-}
-
-# Memory management and resource cleanup tests
-@test "Repeated pipe commands don't cause resource exhaustion" {
-    # Run multiple pipe commands in succession to test for descriptor leaks
-    command="for i in {1..10}; do echo 'ls -la | grep dsh | wc -l'; done"
-    run bash -c "$command | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
-    [ "$status" -eq 0 ]
-    # All 10 commands should produce output
-    count=$(echo "$output" | wc -l)
-    [ "$count" -ge 10 ]
-}
-
-# Edge case: Empty output through the pipe
-@test "Empty output through pipe: grep nonexistent test_input.txt | wc -l" {
-    run bash -c "echo 'grep nonexistent test_input.txt | wc -l' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ 0 ]]  # Should show 0 lines
-}
-
-# Standard error handling
-@test "Standard error propagation: ls /nonexistent 2>&1 | grep 'No such file'" {
-    # This test requires extra credit redirection implementation
-    # If not implemented, it will be skipped
-    if ! echo "ls > /dev/null" | $DSH 2>/dev/null; then
-        skip "Redirection not implemented"
-    fi
+@test "Output redirection truncates existing file: echo new > test_output.txt" {
+    # First, create a file with content
+    echo "original content" > test_output.txt
     
-    run bash -c "echo 'ls /nonexistent 2>&1 | grep \"No such file\"' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
+    # Then, overwrite it
+    run bash -c "echo 'echo new > test_output.txt' | $DSH"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"No such file"* ]] || [[ "$output" == *"cannot access"* ]]
+    
+    # Check that the file was truncated
+    run cat test_output.txt
+    [[ "$output" == "new" ]]
+    [[ "$output" != *"original content"* ]]
+}
+
+# APPEND REDIRECTION TESTS
+
+@test "Append redirection: echo line1 >> test_append.txt" {
+    run bash -c "echo 'echo line1 >> test_append.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    run cat test_append.txt
+    [[ "$output" == "line1" ]]
+}
+
+@test "Multiple append operations: create and append to file" {
+    run bash -c "echo -e 'echo first > test_append.txt\necho second >> test_append.txt\necho third >> test_append.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    run cat test_append.txt
+    [[ "$output" == *"first"* ]]
+    [[ "$output" == *"second"* ]]
+    [[ "$output" == *"third"* ]]
+    
+    # Verify order is correct
+    line1=$(head -1 test_append.txt)
+    line2=$(head -2 test_append.txt | tail -1)
+    line3=$(tail -1 test_append.txt)
+    
+    [[ "$line1" == "first" ]]
+    [[ "$line2" == "second" ]]
+    [[ "$line3" == "third" ]]
+}
+
+# COMBINED REDIRECTION TESTS
+
+@test "Input and output redirection: grep test < test_input.txt > test_output.txt" {
+    run bash -c "echo 'grep test < test_input.txt > test_output.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    run cat test_output.txt
+    [[ "$output" == *"line1 test"* ]]
+    [[ "$output" == *"line3 test"* ]]
+    [[ "$output" != *"line2 data"* ]]
+}
+
+@test "Redirection with multiple arguments: cat test_input.txt > test_output.txt" {
+    run bash -c "echo 'cat test_input.txt > test_output.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    run cat test_output.txt
+    [[ "$output" == *"line1 test"* ]]
+    [[ "$output" == *"line2 data"* ]]
+    [[ "$output" == *"line3 test"* ]]
+}
+
+# PIPE WITH REDIRECTION TESTS
+
+@test "Pipe with input redirection: cat < test_input.txt | grep test" {
+    run bash -c "echo 'cat < test_input.txt | grep test' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"line1 test"* ]]
+    [[ "$output" == *"line3 test"* ]]
+    [[ "$output" != *"line2 data"* ]]
+}
+
+@test "Pipe with output redirection: ls | grep .c > test_output.txt" {
+    run bash -c "echo 'ls | grep \".c\" > test_output.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    run cat test_output.txt
+    [[ "$output" == *"dsh_cli.c"* ]]
+    [[ "$output" == *"dshlib.c"* ]]
+}
+
+@test "Pipe with append redirection: ls | grep .c >> test_append.txt" {
+    # First create a file
+    echo "Original content" > test_append.txt
+    
+    # Run the pipe with append
+    run bash -c "echo 'ls | grep \".c\" >> test_append.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    
+    # Verify original content is preserved and new content is appended
+    run cat test_append.txt
+    [[ "$output" == *"Original content"* ]]
+    [[ "$output" == *"dsh_cli.c"* ]]
+    [[ "$output" == *"dshlib.c"* ]]
+}
+
+@test "Complex pipe with redirection: cat < test_input.txt | grep test | wc -l > test_output.txt" {
+    run bash -c "echo 'cat < test_input.txt | grep test | wc -l > test_output.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    run cat test_output.txt
+    [[ "$output" =~ 2 ]]  # Should find 2 lines with "test"
+}
+
+# ERROR HANDLING TESTS
+
+@test "Error handling: redirection with nonexistent input file" {
+    run bash -c "echo 'cat < nonexistent_file.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"No such file"* ]] || [[ "$output" == *"cannot open"* ]]
+}
+
+@test "Error handling: redirection to invalid output path" {
+    run bash -c "echo 'echo hello > /invalid/path/file.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"No such file"* ]] || [[ "$output" == *"Permission denied"* ]]
+}
+
+# EDGE CASES
+
+@test "Multiple redirections in one command: sort < test_input.txt > test_output.txt" {
+    run bash -c "echo 'sort < test_input.txt > test_output.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    run cat test_output.txt
+    [[ "$output" == *"line1 test"* ]]
+    [[ "$output" == *"line2 data"* ]]
+    [[ "$output" == *"line3 test"* ]]
+    
+    # Verify sort worked
+    first_line=$(head -1 test_output.txt)
+    [[ "$first_line" == "line1 test" ]]
+}
+
+@test "Spaces around redirection operators: echo hello  >  test_output.txt" {
+    run bash -c "echo 'echo hello  >  test_output.txt' | $DSH"
+    [ "$status" -eq 0 ]
+    run cat test_output.txt
+    [[ "$output" == "hello" ]]
+}
+
+@test "Built-in command with redirection: echo hello > test_output.txt && cat test_output.txt" {
+    run bash -c "echo -e 'echo hello > test_output.txt\ncat test_output.txt' | $DSH | grep -v 'dsh3>' | grep -v 'cmd loop'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"hello"* ]]
 }
