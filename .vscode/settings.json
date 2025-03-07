@@ -2,5 +2,6 @@
     "files.associations": {
         "unistd.h": "c",
         "syscall.h": "c"
-    }
+    },
+    "peacock.remoteColor": "#07294D"
 }

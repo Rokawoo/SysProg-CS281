@@ -1,3 +1,4 @@
 signal-basic
 signal-custom
 signal-do-not-disturb
+trap-segfault
