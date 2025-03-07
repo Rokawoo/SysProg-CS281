@@ -24,6 +24,11 @@ typedef struct cmd_buff
     int  argc;
     char *argv[CMD_ARGV_MAX];
     char *_cmd_buffer;
+    
+    // Extra credit: Redirection support
+    char *input_file;     // Input redirection file (<)
+    char *output_file;    // Output redirection file (> or >>)
+    bool append_mode;     // Whether to append (>>) or truncate (>)
 } cmd_buff_t;
 
 /* WIP - Move to next assignment 
