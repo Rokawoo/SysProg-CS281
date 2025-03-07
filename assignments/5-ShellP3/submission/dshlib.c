@@ -6,9 +6,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <errno.h>    /* Added for errno */
+#include <signal.h>   /* Added for kill() */
 
 #include "dshlib.h"
-
 /*
  * Implement your exec_local_cmd_loop function by building a loop that prompts the 
  * user for input.  Use the SH_PROMPT constant from dshlib.h and then
