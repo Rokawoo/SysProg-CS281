@@ -55,29 +55,32 @@
 // Track last command's return code
 int last_return_code = 0;
 
-int exec_local_cmd_loop() {
-    char cmd_buff[SH_CMD_MAX];
-    cmd_buff_t cmd;
+/*
+ * Allocates memory for a command buffer and initializes it
+ */
+int alloc_cmd_buff(cmd_buff_t *cmd_buff) {
+    if (cmd_buff == NULL) return ERR_MEMORY;
+    
+    cmd_buff->_cmd_buffer = (char *)malloc(SH_CMD_MAX);
+    if (cmd_buff->_cmd_buffer == NULL) return ERR_MEMORY;
+    
+    clear_cmd_buff(cmd_buff);
+    return OK;
+}
 
-    while(1) {
-        printf("%s", SH_PROMPT);
-        if (fgets(cmd_buff, SH_CMD_MAX, stdin) == NULL) {
-            printf("\n");
-            break;
-        }
-        // Remove the trailing \n from cmd_buff
-        cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
-
-        // Skip empty commands
-        if (strlen(cmd_buff) == 0) {
-            printf("%s\n", CMD_WARN_NO_CMD);
-            continue;
-        }
-
-        // Handle exit command
-        if (strncmp(cmd_buff, EXIT_CMD, strlen(EXIT_CMD)) == 0) {
-            break;
-        }
+/*
+ * Frees memory used by a command buffer
+ */
+int free_cmd_buff(cmd_buff_t *cmd_buff) {
+    if (cmd_buff == NULL) return ERR_MEMORY;
+    
+    if (cmd_buff->_cmd_buffer != NULL) {
+        free(cmd_buff->_cmd_buffer);
+        cmd_buff->_cmd_buffer = NULL;
+    }
+    
+    return OK;
+}
 
         // Handle dragon command (extra credit from previous assignment)
         if (strncmp(cmd_buff, DRAGON_CMD, strlen(DRAGON_CMD)) == 0) {
@@ -179,21 +182,20 @@ int exec_local_cmd_loop() {
             free(cmd._cmd_buffer);
             continue;
         }
-
-        // Execute external command using fork/exec
+        
+        // Execute the command using fork/exec
         pid_t pid = fork();
         
         if (pid < 0) {
             // Fork failed
             perror("fork");
             last_return_code = errno;
-            free(cmd._cmd_buffer);
-            continue;
+            return ERR_EXEC_CMD;
         } else if (pid == 0) {
             // Child process
-            execvp(cmd.argv[0], cmd.argv);
+            execvp(clist->commands[0].argv[0], clist->commands[0].argv);
             
-            // Extra credit: handle specific error cases
+            // If we get here, execvp failed
             switch (errno) {
                 case ENOENT:
                     printf("Command not found in PATH\n");
@@ -216,16 +218,16 @@ int exec_local_cmd_loop() {
             int status;
             waitpid(pid, &status, 0);
             
-            // Extra credit: extract exit status
             if (WIFEXITED(status)) {
                 last_return_code = WEXITSTATUS(status);
             } else {
                 last_return_code = -1;
             }
         }
-
-        free(cmd._cmd_buffer);
+        
+        // Free command list
+        free_cmd_list(&cmd_list);
     }
-
+    
     return OK;
 }
