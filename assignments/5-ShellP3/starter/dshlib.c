@@ -82,93 +82,98 @@ int free_cmd_buff(cmd_buff_t *cmd_buff) {
     return OK;
 }
 
-        // Handle dragon command (extra credit from previous assignment)
-        if (strncmp(cmd_buff, DRAGON_CMD, strlen(DRAGON_CMD)) == 0) {
-            print_dragon();
-            last_return_code = 0;
+/*
+ * Resets the command buffer to its initial state
+ */
+int clear_cmd_buff(cmd_buff_t *cmd_buff) {
+    if (cmd_buff == NULL) return ERR_MEMORY;
+    
+    cmd_buff->argc = 0;
+    for (int i = 0; i < CMD_ARGV_MAX; i++) {
+        cmd_buff->argv[i] = NULL;
+    }
+    
+    if (cmd_buff->_cmd_buffer != NULL) {
+        cmd_buff->_cmd_buffer[0] = '\0';
+    }
+    
+    return OK;
+}
+
+/*
+ * Builds a command buffer from a command line string
+ */
+int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
+    if (cmd_line == NULL || cmd_buff == NULL) return ERR_MEMORY;
+    
+    // Skip leading whitespace
+    while (*cmd_line && isspace(*cmd_line)) cmd_line++;
+    
+    // Check if there's any command
+    if (*cmd_line == '\0') {
+        return WARN_NO_CMDS;
+    }
+    
+    // Copy command line to buffer
+    cmd_buff->_cmd_buffer = strdup(cmd_line);
+    if (cmd_buff->_cmd_buffer == NULL) {
+        return ERR_MEMORY;
+    }
+    
+    // Initialize argc
+    cmd_buff->argc = 0;
+    
+    // Parse command and arguments
+    bool in_quotes = false;
+    char *p = cmd_buff->_cmd_buffer;
+    char *token_start = p;
+    
+    while (*p) {
+        if (*p == '"') {
+            // Toggle quote state
+            in_quotes = !in_quotes;
+            p++;
             continue;
         }
         
-        // Extra credit: Handle rc command
-        if (strcmp(cmd_buff, "rc") == 0) {
-            printf("%d\n", last_return_code);
-            continue;
-        }
-
-        // Initialize cmd structure
-        memset(&cmd, 0, sizeof(cmd_buff_t));
-        cmd._cmd_buffer = strdup(cmd_buff);
-        if (!cmd._cmd_buffer) {
-            return ERR_MEMORY;
-        }
-
-        // Parse command and arguments
-        char *input = cmd._cmd_buffer;
-        int arg_idx = 0;
-        bool in_quotes = false;
-        char *start = input;
-        
-        // Skip leading whitespace
-        while (*start && isspace(*start)) start++;
-        
-        char *p = start;
-        char *token_start = p;
-        
-        while (*p) {
-            if (*p == '"') {
-                // Toggle quote state
-                in_quotes = !in_quotes;
-                p++;
-                continue;
+        if (isspace(*p) && !in_quotes) {
+            // End of token
+            if (p > token_start) {
+                *p = '\0';
+                if (cmd_buff->argc < CMD_ARGV_MAX) {
+                    cmd_buff->argv[cmd_buff->argc++] = token_start;
+                }
             }
             
-            if (isspace(*p) && !in_quotes) {
-                // End of token
-                if (p > token_start) {
-                    *p = '\0';
-                    if (arg_idx < CMD_ARGV_MAX) {
-                        cmd.argv[arg_idx++] = token_start;
-                    }
-                }
-                
-                // Skip multiple spaces
-                while (*(p+1) && isspace(*(p+1)) && !in_quotes) p++;
-                
-                token_start = p + 1;
-            }
-            p++;
+            // Skip multiple spaces
+            while (*(p+1) && isspace(*(p+1)) && !in_quotes) p++;
+            
+            token_start = p + 1;
         }
-        
-        // Add the last argument if there is one
-        if (p > token_start && arg_idx < CMD_ARGV_MAX) {
-            cmd.argv[arg_idx++] = token_start;
-        }
-        
-        cmd.argc = arg_idx;
-        
-        // Handle empty command after parsing
-        if (cmd.argc == 0) {
-            free(cmd._cmd_buffer);
-            printf("%s\n", CMD_WARN_NO_CMD);
-            continue;
-        }
-
-        // Process quoted strings inside arguments
-        for (int i = 0; i < cmd.argc; i++) {
-            char *arg = cmd.argv[i];
-            // If argument starts with a quote
-            if (arg[0] == '"') {
-                // Remove starting quote
-                memmove(arg, arg + 1, strlen(arg));
-                
-                // Find and remove ending quote if it exists
-                size_t len = strlen(arg);
-                if (len > 0 && arg[len - 1] == '"') {
-                    arg[len - 1] = '\0';
-                }
+        p++;
+    }
+    
+    // Add the last argument if there is one
+    if (p > token_start && cmd_buff->argc < CMD_ARGV_MAX) {
+        cmd_buff->argv[cmd_buff->argc++] = token_start;
+    }
+    
+    // Process quoted strings inside arguments
+    for (int i = 0; i < cmd_buff->argc; i++) {
+        char *arg = cmd_buff->argv[i];
+        // If argument starts with a quote
+        if (arg[0] == '"') {
+            // Remove starting quote
+            memmove(arg, arg + 1, strlen(arg));
+            
+            // Find and remove ending quote if it exists
+            size_t len = strlen(arg);
+            if (len > 0 && arg[len - 1] == '"') {
+                arg[len - 1] = '\0';
             }
         }
-
+    }
+    
         // Handle our cd command
         if (strcmp(cmd.argv[0], "cd") == 0) {
             if (cmd.argc > 1) {
