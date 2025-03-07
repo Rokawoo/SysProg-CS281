@@ -4,3 +4,4 @@ server-proto
 server-proto-thread
 client-proto
 proto_test
+get-host-by-name
