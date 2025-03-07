@@ -97,11 +97,16 @@ int clear_cmd_buff(cmd_buff_t *cmd_buff) {
         cmd_buff->_cmd_buffer[0] = '\0';
     }
     
+    // Reset redirection fields (for extra credit)
+    cmd_buff->input_file = NULL;
+    cmd_buff->output_file = NULL;
+    cmd_buff->append_mode = false;
+    
     return OK;
 }
 
 /*
- * Builds a command buffer from a command line string
+ * Builds a command buffer from a command line string with redirection support
  */
 int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
     if (cmd_line == NULL || cmd_buff == NULL) return ERR_MEMORY;
@@ -120,8 +125,11 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
         return ERR_MEMORY;
     }
     
-    // Initialize argc
+    // Initialize argc and redirection fields
     cmd_buff->argc = 0;
+    cmd_buff->input_file = NULL;
+    cmd_buff->output_file = NULL;
+    cmd_buff->append_mode = false;
     
     // Parse command and arguments
     bool in_quotes = false;
@@ -129,6 +137,72 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
     char *token_start = p;
     
     while (*p) {
+        // Handle redirection operators
+        if (!in_quotes && (*p == '<' || *p == '>')) {
+            // End current token if any
+            if (p > token_start) {
+                *p = '\0';
+                if (cmd_buff->argc < CMD_ARGV_MAX) {
+                    cmd_buff->argv[cmd_buff->argc++] = token_start;
+                }
+            }
+            
+            // Mark redirection type
+            bool is_input = (*p == '<');
+            bool is_append = (p[0] == '>' && p[1] == '>');
+            
+            // Skip the operator(s)
+            if (is_append) p += 2;
+            else p++;
+            
+            // Skip whitespace after operator
+            while (*p && isspace(*p)) p++;
+            
+            // Find the file name
+            token_start = p;
+            
+            // Find end of file name (next space or redirection operator)
+            while (*p && !isspace(*p) && *p != '<' && *p != '>') {
+                if (*p == '"') {
+                    // Skip quoted string
+                    p++;
+                    while (*p && *p != '"') p++;
+                    if (*p) p++; // Skip closing quote
+                } else {
+                    p++;
+                }
+            }
+            
+            // Terminate file name
+            if (*p) {
+                char saved = *p;
+                *p = '\0';
+                
+                // Store file name in appropriate field
+                if (is_input) {
+                    cmd_buff->input_file = token_start;
+                } else {
+                    cmd_buff->output_file = token_start;
+                    cmd_buff->append_mode = is_append;
+                }
+                
+                *p = saved; // Restore character
+            } else {
+                // End of string
+                if (is_input) {
+                    cmd_buff->input_file = token_start;
+                } else {
+                    cmd_buff->output_file = token_start;
+                    cmd_buff->append_mode = is_append;
+                }
+                break;
+            }
+            
+            // Prepare for next token
+            token_start = p;
+            continue;
+        }
+        
         if (*p == '"') {
             // Toggle quote state
             in_quotes = !in_quotes;
@@ -153,8 +227,11 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
         p++;
     }
     
-    // Add the last argument if there is one
-    if (p > token_start && cmd_buff->argc < CMD_ARGV_MAX) {
+    // Add the last argument if there is one and it's not a redirection file
+    if (p > token_start && 
+        token_start != cmd_buff->input_file && 
+        token_start != cmd_buff->output_file && 
+        cmd_buff->argc < CMD_ARGV_MAX) {
         cmd_buff->argv[cmd_buff->argc++] = token_start;
     }
     
@@ -171,6 +248,29 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
             if (len > 0 && arg[len - 1] == '"') {
                 arg[len - 1] = '\0';
             }
+        }
+    }
+    
+    // Process quoted strings in redirection file names
+    if (cmd_buff->input_file && cmd_buff->input_file[0] == '"') {
+        // Remove starting quote
+        memmove(cmd_buff->input_file, cmd_buff->input_file + 1, strlen(cmd_buff->input_file));
+        
+        // Find and remove ending quote if it exists
+        size_t len = strlen(cmd_buff->input_file);
+        if (len > 0 && cmd_buff->input_file[len - 1] == '"') {
+            cmd_buff->input_file[len - 1] = '\0';
+        }
+    }
+    
+    if (cmd_buff->output_file && cmd_buff->output_file[0] == '"') {
+        // Remove starting quote
+        memmove(cmd_buff->output_file, cmd_buff->output_file + 1, strlen(cmd_buff->output_file));
+        
+        // Find and remove ending quote if it exists
+        size_t len = strlen(cmd_buff->output_file);
+        if (len > 0 && cmd_buff->output_file[len - 1] == '"') {
+            cmd_buff->output_file[len - 1] = '\0';
         }
     }
     
@@ -195,50 +295,95 @@ int build_cmd_list(char *cmd_line, command_list_t *clist) {
         return ERR_MEMORY;
     }
     
-    // Tokenize the command line by '|'
-    char *saveptr;
-    char *token = strtok_r(cmd_line_copy, "|", &saveptr);
+    // Tokenize the command line by '|' while respecting quotes
+    char *saveptr = cmd_line_copy;
+    bool in_quotes = false;
+    char *token_start = saveptr;
+    char *p = saveptr;
     
-    // Check if there are any commands
-    if (token == NULL) {
-        free(cmd_line_copy);
-        return WARN_NO_CMDS;
-    }
-    
-    // Process each command
-    while (token != NULL && clist->num < CMD_MAX) {
-        // Build command buffer for this token
-        int result = build_cmd_buff(token, &clist->commands[clist->num]);
-        
-        // Handle errors
-        if (result != OK) {
-            if (result == WARN_NO_CMDS) {
-                // Skip empty commands in pipes
-                token = strtok_r(NULL, "|", &saveptr);
-                continue;
+    while (*p) {
+        if (*p == '"') {
+            in_quotes = !in_quotes;
+        } else if (*p == '|' && !in_quotes) {
+            // Found pipe operator outside of quotes
+            *p = '\0';
+            
+            // Allocate memory for command buffer
+            if (alloc_cmd_buff(&clist->commands[clist->num]) != OK) {
+                // Clean up already allocated commands
+                for (int i = 0; i < clist->num; i++) {
+                    free_cmd_buff(&clist->commands[i]);
+                }
+                free(cmd_line_copy);
+                return ERR_MEMORY;
             }
             
-            // Clean up on error
+            // Process this command segment
+            int result = build_cmd_buff(token_start, &clist->commands[clist->num]);
+            if (result != OK) {
+                if (result == WARN_NO_CMDS) {
+                    // Skip empty commands
+                    free_cmd_buff(&clist->commands[clist->num]);
+                    token_start = p + 1;
+                    p++;
+                    continue;
+                }
+                
+                // Clean up on error
+                for (int i = 0; i < clist->num; i++) {
+                    free_cmd_buff(&clist->commands[i]);
+                }
+                free_cmd_buff(&clist->commands[clist->num]);
+                free(cmd_line_copy);
+                return result;
+            }
+            
+            // Move to next command
+            clist->num++;
+            if (clist->num >= CMD_MAX) {
+                // Too many commands
+                for (int i = 0; i < clist->num; i++) {
+                    free_cmd_buff(&clist->commands[i]);
+                }
+                free(cmd_line_copy);
+                return ERR_TOO_MANY_COMMANDS;
+            }
+            
+            token_start = p + 1;
+        }
+        p++;
+    }
+    
+    // Process the last command segment if there is one
+    if (*token_start != '\0') {
+        // Allocate memory for command buffer
+        if (alloc_cmd_buff(&clist->commands[clist->num]) != OK) {
+            // Clean up already allocated commands
             for (int i = 0; i < clist->num; i++) {
                 free_cmd_buff(&clist->commands[i]);
             }
             free(cmd_line_copy);
-            return result;
+            return ERR_MEMORY;
         }
         
-        // Move to the next command
-        clist->num++;
-        token = strtok_r(NULL, "|", &saveptr);
-    }
-    
-    // Check if we exceeded the maximum number of commands
-    if (token != NULL && clist->num >= CMD_MAX) {
-        // Clean up
-        for (int i = 0; i < clist->num; i++) {
-            free_cmd_buff(&clist->commands[i]);
+        // Process this command segment
+        int result = build_cmd_buff(token_start, &clist->commands[clist->num]);
+        if (result != OK) {
+            if (result != WARN_NO_CMDS) {
+                // Clean up on error
+                for (int i = 0; i < clist->num; i++) {
+                    free_cmd_buff(&clist->commands[i]);
+                }
+                free_cmd_buff(&clist->commands[clist->num]);
+                free(cmd_line_copy);
+                return result;
+            }
+            // Skip last command if empty
+            free_cmd_buff(&clist->commands[clist->num]);
+        } else {
+            // Valid last command
+            clist->num++;
         }
-        free(cmd_line_copy);
-        return ERR_TOO_MANY_COMMANDS;
     }
     
     free(cmd_line_copy);
@@ -332,6 +477,55 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd) {
 }
 
 /*
+ * Sets up file redirection for a command
+ * Returns 0 on success, -1 on error
+ */
+int setup_redirection(cmd_buff_t *cmd) {
+    // Handle input redirection
+    if (cmd->input_file != NULL) {
+        int fd = open(cmd->input_file, O_RDONLY);
+        if (fd < 0) {
+            perror(cmd->input_file);
+            return -1;
+        }
+        
+        if (dup2(fd, STDIN_FILENO) < 0) {
+            perror("dup2");
+            close(fd);
+            return -1;
+        }
+        
+        close(fd);
+    }
+    
+    // Handle output redirection
+    if (cmd->output_file != NULL) {
+        int flags = O_WRONLY | O_CREAT;
+        if (cmd->append_mode) {
+            flags |= O_APPEND;
+        } else {
+            flags |= O_TRUNC;
+        }
+        
+        int fd = open(cmd->output_file, flags, 0644);
+        if (fd < 0) {
+            perror(cmd->output_file);
+            return -1;
+        }
+        
+        if (dup2(fd, STDOUT_FILENO) < 0) {
+            perror("dup2");
+            close(fd);
+            return -1;
+        }
+        
+        close(fd);
+    }
+    
+    return 0;
+}
+
+/*
  * Executes a pipeline of commands
  */
 int execute_pipeline(command_list_t *clist) {
@@ -348,6 +542,43 @@ int execute_pipeline(command_list_t *clist) {
             return OK;
         }
         
+        // Handle file redirection for built-in commands
+        if (clist->commands[0].input_file != NULL || clist->commands[0].output_file != NULL) {
+            // Save original stdin/stdout
+            int saved_stdin = dup(STDIN_FILENO);
+            int saved_stdout = dup(STDOUT_FILENO);
+            
+            if (saved_stdin < 0 || saved_stdout < 0) {
+                perror("dup");
+                return ERR_EXEC_CMD;
+            }
+            
+            // Set up redirection
+            if (setup_redirection(&clist->commands[0]) < 0) {
+                // Restore original stdin/stdout
+                dup2(saved_stdin, STDIN_FILENO);
+                dup2(saved_stdout, STDOUT_FILENO);
+                close(saved_stdin);
+                close(saved_stdout);
+                return ERR_EXEC_CMD;
+            }
+            
+            // Execute built-in command again with redirection
+            cmd_type = exec_built_in_cmd(&clist->commands[0]);
+            
+            // Restore original stdin/stdout
+            dup2(saved_stdin, STDIN_FILENO);
+            dup2(saved_stdout, STDOUT_FILENO);
+            close(saved_stdin);
+            close(saved_stdout);
+            
+            if (cmd_type == BI_CMD_EXIT) {
+                return OK_EXIT;
+            } else if (cmd_type == BI_EXECUTED) {
+                return OK;
+            }
+        }
+        
         // Execute the command using fork/exec
         pid_t pid = fork();
         
@@ -358,6 +589,13 @@ int execute_pipeline(command_list_t *clist) {
             return ERR_EXEC_CMD;
         } else if (pid == 0) {
             // Child process
+            
+            // Set up redirection
+            if (setup_redirection(&clist->commands[0]) < 0) {
+                exit(EXIT_FAILURE);
+            }
+            
+            // Execute command
             execvp(clist->commands[0].argv[0], clist->commands[0].argv);
             
             // If we get here, execvp failed
@@ -477,6 +715,11 @@ int execute_pipeline(command_list_t *clist) {
             for (int j = 0; j < clist->num - 1; j++) {
                 close(pipe_fds[j][0]);
                 close(pipe_fds[j][1]);
+            }
+            
+            // Set up redirection (this will only affect the first and last commands in the pipeline)
+            if (setup_redirection(&clist->commands[i]) < 0) {
+                exit(EXIT_FAILURE);
             }
             
             // Execute command
