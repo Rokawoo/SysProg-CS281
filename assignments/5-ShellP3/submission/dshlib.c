@@ -696,6 +696,11 @@ int execute_pipeline(command_list_t *clist) {
         } else if (child_pids[i] == 0) {
             // Child process
             
+            // Set up redirection first - important for input redirection
+            if (setup_redirection(&clist->commands[i]) < 0) {
+                exit(EXIT_FAILURE);
+            }
+            
             // Set up stdin from previous pipe (if not first command)
             if (i > 0) {
                 if (dup2(pipe_fds[i - 1][0], STDIN_FILENO) < 0) {
@@ -716,11 +721,6 @@ int execute_pipeline(command_list_t *clist) {
             for (int j = 0; j < clist->num - 1; j++) {
                 close(pipe_fds[j][0]);
                 close(pipe_fds[j][1]);
-            }
-            
-            // Set up redirection (this will only affect the first and last commands in the pipeline)
-            if (setup_redirection(&clist->commands[i]) < 0) {
-                exit(EXIT_FAILURE);
             }
             
             // Execute command
