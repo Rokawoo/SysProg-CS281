@@ -65,7 +65,7 @@ int main() {
     for (int i = 0; i < NUM_CUSTOMERS; i++) {
         cust_ids[i] = i;
         pthread_create(&customers[i], NULL, customer, &cust_ids[i]);
-        usleep(100000);  // Stagger thread creation slightly
+        //usleep(100000);  // Stagger thread creation slightly
     }
 
     // Wait for all customers to finish
