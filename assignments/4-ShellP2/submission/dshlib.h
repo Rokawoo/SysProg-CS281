@@ -1,8 +1,6 @@
 #ifndef __DSHLIB_H__
     #define __DSHLIB_H__
 
-#include <stdbool.h>  /* Added for bool type */
-
 // Dragon Print
 void print_dragon(void);
 #define DRAGON_CMD "dragon"
@@ -20,24 +18,25 @@ typedef struct cmd_buff
     int  argc;
     char *argv[CMD_ARGV_MAX];
     char *_cmd_buffer;
-    
-    // Extra credit: Redirection support
-    char *input_file;     // Input redirection file (<)
-    char *output_file;    // Output redirection file (> or >>)
-    bool append_mode;     // Whether to append (>>) or truncate (>)
 } cmd_buff_t;
 
-typedef struct command_list {
-    int num;
-    cmd_buff_t commands[CMD_MAX];
-} command_list_t;
+/* WIP - Move to next assignment 
+#define N_ARG_MAX    15     //MAX number of args for a command
+typedef struct command{
+    char exe [EXE_MAX];
+    char args[ARG_MAX];
+    int  argc;
+    char *argv[N_ARG_MAX + 1];  //last argv[LAST] must be \0
+}command_t;
+*/
+
 
 //Special character #defines
 #define SPACE_CHAR  ' '
 #define PIPE_CHAR   '|'
 #define PIPE_STRING "|"
 
-#define SH_PROMPT "dsh3> "
+#define SH_PROMPT "dsh2> "
 #define EXIT_CMD "exit"
 
 //Standard Return Codes
@@ -55,8 +54,6 @@ int alloc_cmd_buff(cmd_buff_t *cmd_buff);
 int free_cmd_buff(cmd_buff_t *cmd_buff);
 int clear_cmd_buff(cmd_buff_t *cmd_buff);
 int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff);
-int build_cmd_list(char *cmd_line, command_list_t *clist);
-int free_cmd_list(command_list_t *cmd_lst);
 
 //built in command stuff
 typedef enum {
@@ -73,7 +70,9 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd);
 //main execution context
 int exec_local_cmd_loop();
 int exec_cmd(cmd_buff_t *cmd);
-int execute_pipeline(command_list_t *clist);
+
+
+
 
 //output constants
 #define CMD_OK_HEADER       "PARSED COMMAND LINE - TOTAL COMMANDS %d\n"
