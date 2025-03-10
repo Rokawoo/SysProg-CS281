@@ -53,7 +53,7 @@ static void start_client(uint8_t *packet){
     /* Connect socket to socket address */
 
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1"); // This is local to our computer as is for everyone, so instead of stating a global value that is prone to change, we will dynamically reference whatever network our machine is on by referencing local.
     addr.sin_port = htons(PORT_NUM);
 
     ret = connect (data_socket, (const struct sockaddr *) &addr,
