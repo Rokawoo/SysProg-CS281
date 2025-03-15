@@ -158,6 +158,44 @@ int exec_remote_cmd_loop(char *address, int port) {
             break;  // Exit the command loop
         }
 
+        // Send command to server (include null terminator)
+        io_size = send(cli_socket, cmd_buff, strlen(cmd_buff) + 1, 0);
+        if (io_size < 0) {
+            perror("send");
+            return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
+        }
+
+        // Receive and process server responses until EOF
+        while ((io_size = recv(cli_socket, rsp_buff, RDSH_COMM_BUFF_SZ, 0)) > 0) {
+            // Check if this is the last chunk (ends with EOF char)
+            is_eof = (rsp_buff[io_size - 1] == RDSH_EOF_CHAR) ? 1 : 0;
+            
+            if (is_eof) {
+                // Replace EOF with null for proper string printing
+                rsp_buff[io_size - 1] = '\0';
+                printf("%.*s", (int)io_size - 1, rsp_buff);
+            } else {
+                printf("%.*s", (int)io_size, rsp_buff);
+            }
+            
+            // Break out of receive loop if EOF received
+            if (is_eof) break;
+        }
+        
+        // Handle receive errors or server shutdown
+        if (io_size < 0) {
+            perror("recv");
+            return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
+        } else if (io_size == 0) {
+            printf("Server closed connection\n");
+            return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
+        }
+        
+        // Check if command was "stop-server"
+        if (strcmp(cmd_buff, "stop-server") == 0) {
+            break;  // Exit the command loop
+        }
+    }
 
     return client_cleanup(cli_socket, cmd_buff, rsp_buff, OK);
 }
