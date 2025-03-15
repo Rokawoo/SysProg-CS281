@@ -112,6 +112,52 @@ int exec_remote_cmd_loop(char *address, int port) {
         return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_CLIENT);
     }
 
+    while (1) {
+        // Print prompt to user
+        printf("%s", SH_PROMPT);
+        fflush(stdout);
+
+        // Get input from user
+        if (fgets(cmd_buff, RDSH_COMM_BUFF_SZ, stdin) == NULL) {
+            printf("\n");
+            break;
+        }
+
+        // Remove trailing newline
+        cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
+
+        // Check if command is empty
+        if (strlen(cmd_buff) == 0) {
+            continue;
+        }
+
+        // Exit client if command is "exit"
+        if (strcmp(cmd_buff, EXIT_CMD) == 0) {
+            // Send exit command to server
+            io_size = send(cli_socket, cmd_buff, strlen(cmd_buff) + 1, 0);
+            if (io_size < 0) {
+                perror("send");
+                return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
+            }
+            
+            // Wait for server response and EOF
+            while ((io_size = recv(cli_socket, rsp_buff, RDSH_COMM_BUFF_SZ, 0)) > 0) {
+                is_eof = (rsp_buff[io_size - 1] == RDSH_EOF_CHAR) ? 1 : 0;
+                
+                if (is_eof) {
+                    // Replace EOF with null for proper string printing
+                    rsp_buff[io_size - 1] = '\0';
+                    printf("%.*s", (int)io_size - 1, rsp_buff);
+                } else {
+                    printf("%.*s", (int)io_size, rsp_buff);
+                }
+                
+                if (is_eof) break;
+            }
+            
+            break;  // Exit the command loop
+        }
+
 
     return client_cleanup(cli_socket, cmd_buff, rsp_buff, OK);
 }
