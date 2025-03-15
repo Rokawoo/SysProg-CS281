@@ -97,6 +97,21 @@ int exec_remote_cmd_loop(char *address, int port) {
     ssize_t io_size;
     int is_eof;
 
+    // Allocate buffers for sending and receiving data
+    cmd_buff = malloc(RDSH_COMM_BUFF_SZ);
+    rsp_buff = malloc(RDSH_COMM_BUFF_SZ);
+    
+    if (cmd_buff == NULL || rsp_buff == NULL) {
+        return client_cleanup(0, cmd_buff, rsp_buff, ERR_MEMORY);
+    }
+
+    // Connect to the server
+    cli_socket = start_client(address, port);
+    if (cli_socket < 0) {
+        perror("start client");
+        return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_CLIENT);
+    }
+
 
     return client_cleanup(cli_socket, cmd_buff, rsp_buff, OK);
 }
