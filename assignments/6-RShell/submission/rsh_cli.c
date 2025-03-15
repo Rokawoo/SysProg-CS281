@@ -90,34 +90,13 @@
  *   function after cleaning things up.  See the documentation for client_cleanup()
  *      
  */
-int exec_remote_cmd_loop(char *address, int port)
-{
+int exec_remote_cmd_loop(char *address, int port) {
     char *cmd_buff;
     char *rsp_buff;
     int cli_socket;
     ssize_t io_size;
     int is_eof;
 
-    // TODO set up cmd and response buffs
-
-    cli_socket = start_client(address,port);
-    if (cli_socket < 0){
-        perror("start client");
-        return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_CLIENT);
-    }
-
-    while (1) 
-    {
-        // TODO print prompt
-
-        // TODO fgets input
-
-        // TODO send() over cli_socket
-
-        // TODO recv all the results
-
-        // TODO break on exit command
-    }
 
     return client_cleanup(cli_socket, cmd_buff, rsp_buff, OK);
 }
