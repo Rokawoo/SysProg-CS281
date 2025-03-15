@@ -36,17 +36,17 @@ static void process_requests(int listen_socket){
         memset(send_buffer,0,sizeof(send_buffer));
         memset(recv_buffer,0,sizeof(recv_buffer));
 
-        //Establish a connection
-        data_socket = accept(listen_socket, NULL, NULL);
-        if (data_socket == -1) {
-            perror("accept");
-            exit(EXIT_FAILURE);
-        }
+            //Establish a connection
+            data_socket = accept(listen_socket, NULL, NULL); // Only can accept 1 client at a time, but we can acccept the client connection and handle it in a thread
+            if (data_socket == -1) {
+                perror("accept");
+                exit(EXIT_FAILURE);
+            }
 
         printf("\t RECEIVED REQ...\n");
 
         /* Wait for next data packet. */
-        ret = recv(data_socket, recv_buffer, sizeof(recv_buffer),0);
+        ret = recv(data_socket, recv_buffer, sizeof(recv_buffer),0); // send looks like write, recv looks like read
         if (ret == -1) {
             perror("read error");
             exit(EXIT_FAILURE);
@@ -56,8 +56,8 @@ static void process_requests(int listen_socket){
                 sizeof(send_buffer), "THANK YOU -> %s", recv_buffer);
 
         //now string out buffer has the length
-        send (data_socket, send_buffer, buff_len, 0);
-        close(data_socket);
+        send (data_socket, send_buffer, buff_len, 0); // Wrapper around write
+        close(data_socket); // This is important to close on the client side because it will hold resources, daemons or servers are expected to be running for a long time / forver. Linux won't clean this up by itself. It's taking up a socket number. We will run out of available file descriptors in the system.
     }
 }
 
