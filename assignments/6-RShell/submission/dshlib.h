@@ -53,9 +53,10 @@ typedef struct command_list{
 #define PIPE_CHAR   '|'
 #define PIPE_STRING "|"
 
-#define SH_PROMPT "dsh3> "
-#define EXIT_CMD "exit"
-#define EXIT_SC     99
+#define SH_PROMPT       "dsh4> "
+#define EXIT_CMD        "exit"
+#define RC_SC           99
+#define EXIT_SC         100
 
 //Standard Return Codes
 #define OK                       0
@@ -81,6 +82,8 @@ typedef enum {
     BI_CMD_EXIT,
     BI_CMD_DRAGON,
     BI_CMD_CD,
+    BI_CMD_RC,              //extra credit command
+    BI_CMD_STOP_SVR,        //new command "stop-server"
     BI_NOT_BI,
     BI_EXECUTED,
     BI_RC,
@@ -93,13 +96,11 @@ int exec_local_cmd_loop();
 int exec_cmd(cmd_buff_t *cmd);
 int execute_pipeline(command_list_t *clist);
 
-
-
-
 //output constants
 #define CMD_OK_HEADER       "PARSED COMMAND LINE - TOTAL COMMANDS %d\n"
 #define CMD_WARN_NO_CMD     "warning: no commands provided\n"
 #define CMD_ERR_PIPE_LIMIT  "error: piping limited to %d commands\n"
 #define CMD_ERR_EXECUTE     "error: could not execute command\n"
+#define BI_NOT_IMPLEMENTED  "not implemented"
 
 #endif
