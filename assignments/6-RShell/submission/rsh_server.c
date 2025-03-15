@@ -332,7 +332,7 @@ int send_message_string(int cli_socket, char *buff){
  *      │   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │  │    
  *      │   │   Process 1  │     │   Process 2  │     │   Process N  │  │  │    
  *      │   │              │     │              │     │              │  │  │    
- *      └───▶stdin   stdout├─┬──▶│stdin   stdout├─┬──▶│stdin   stdout├──┘  │    
+ *      └───▶stdin   stdout├─┬──▶│stdin   stdout├─┬──▶│stdin   stdout├──┘ │    
  *          │              │ │   │              │ │   │              │     │    
  *          │        stderr├─┘   │        stderr├─┘   │        stderr├─────┘    
  *          └──────────────┘     └──────────────┘     └──────────────┘   
