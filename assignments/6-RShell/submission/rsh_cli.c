@@ -145,13 +145,37 @@ int exec_remote_cmd_loop(char *address, int port)
  *          ERR_RDSH_CLIENT:    If socket() or connect() fail
  * 
  */
-int start_client(char *server_ip, int port){
+int start_client(char *server_ip, int port) {
     struct sockaddr_in addr;
     int cli_socket;
     int ret;
 
-    // TODO set up cli_socket
+    // Create a socket
+    cli_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (cli_socket < 0) {
+        perror("socket");
+        return ERR_RDSH_CLIENT;
+    }
 
+    // Set up the server address structure
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    
+    // Convert IP address from text to binary form
+    if (inet_pton(AF_INET, server_ip, &addr.sin_addr) <= 0) {
+        perror("inet_pton");
+        close(cli_socket);
+        return ERR_RDSH_CLIENT;
+    }
+
+    // Connect to the server
+    ret = connect(cli_socket, (struct sockaddr *)&addr, sizeof(addr));
+    if (ret < 0) {
+        perror("connect");
+        close(cli_socket);
+        return ERR_RDSH_CLIENT;
+    }
 
     return cli_socket;
 }
