@@ -80,7 +80,12 @@ int start_server(char *ifaces, int port, int is_threaded) {
  *      This function simply returns the value of close() when closing
  *      the socket.  
  */
-int stop_server(int svr_socket){
+int stop_server(int svr_socket) {
+    // Clean up threading resources
+    if (g_is_threaded) {
+        pthread_mutex_destroy(&g_client_mutex);
+    }
+    
     return close(svr_socket);
 }
 
