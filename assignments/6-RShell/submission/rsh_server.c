@@ -209,6 +209,7 @@ int process_cli_requests(int svr_socket) {
     int rc = OK;
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof(client_addr);
+    pthread_t thread_id;
 
     while (1) {
         // Accept connection from client
@@ -217,23 +218,61 @@ int process_cli_requests(int svr_socket) {
             perror("accept");
             return ERR_RDSH_COMMUNICATION;
         }
-
-        // Process client requests
-        rc = exec_client_requests(cli_socket);
         
-        // Close client socket
-        close(cli_socket);
+        // Check if we should stop the server
+        pthread_mutex_lock(&g_client_mutex);
+        if (g_active_clients < 0) {
+            pthread_mutex_unlock(&g_client_mutex);
+            close(cli_socket);
+            return OK_EXIT;
+        }
+        pthread_mutex_unlock(&g_client_mutex);
         
-        // Check if server should stop
-        if (rc == OK_EXIT) {
-            printf(RCMD_MSG_SVR_STOP_REQ);
-            break;
-        } else if (rc == OK) {
-            printf(RCMD_MSG_CLIENT_EXITED);
+        if (g_is_threaded) {
+            // Handle client in a new thread
+            int *client_sock = malloc(sizeof(int));
+            if (client_sock == NULL) {
+                perror("malloc");
+                close(cli_socket);
+                continue;
+            }
+            
+            *client_sock = cli_socket;
+            
+            // Update active client count
+            pthread_mutex_lock(&g_client_mutex);
+            g_active_clients++;
+            pthread_mutex_unlock(&g_client_mutex);
+            
+            // Create new thread to handle client
+            if (pthread_create(&thread_id, NULL, handle_client, client_sock) != 0) {
+                perror("pthread_create");
+                close(cli_socket);
+                free(client_sock);
+                
+                pthread_mutex_lock(&g_client_mutex);
+                g_active_clients--;
+                pthread_mutex_unlock(&g_client_mutex);
+                
+                continue;
+            }
+            
+            // Detach thread so it cleans up itself when done
+            pthread_detach(thread_id);
         } else {
-            // Handle error
-            printf(CMD_ERR_RDSH_ITRNL, rc);
-            break;
+            // Handle client in main thread (non-threaded mode)
+            rc = exec_client_requests(cli_socket);
+            close(cli_socket);
+            
+            if (rc == OK_EXIT) {
+                printf(RCMD_MSG_SVR_STOP_REQ);
+                return OK_EXIT;
+            } else if (rc == OK) {
+                printf(RCMD_MSG_CLIENT_EXITED);
+            } else {
+                printf(CMD_ERR_RDSH_ITRNL, rc);
+                return rc;
+            }
         }
     }
 
