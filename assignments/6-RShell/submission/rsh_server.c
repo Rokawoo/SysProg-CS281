@@ -291,6 +291,86 @@ int exec_client_requests(int cli_socket) {
         return ERR_RDSH_SERVER;
     }
 
+    while (1) {
+        // Clear buffer
+        memset(io_buff, 0, RDSH_COMM_BUFF_SZ);
+        
+        // Receive command from client
+        io_size = recv(cli_socket, io_buff, RDSH_COMM_BUFF_SZ - 1, 0);
+        
+        // Check for errors or closed connection
+        if (io_size <= 0) {
+            if (io_size < 0) {
+                perror("recv");
+            }
+            free(io_buff);
+            return ERR_RDSH_COMMUNICATION;
+        }
+        
+        // Make sure buffer is null-terminated
+        io_buff[io_size] = '\0';
+        
+        // Print received command for debugging
+        printf(RCMD_MSG_SVR_EXEC_REQ, io_buff);
+        
+        // Check for exit command
+        if (strcmp(io_buff, EXIT_CMD) == 0) {
+            char *exit_msg = "exiting...\n";
+            send_message_string(cli_socket, exit_msg);
+            free(io_buff);
+            return OK;
+        }
+        
+        // Check for stop-server command
+        if (strcmp(io_buff, "stop-server") == 0) {
+            char *stop_msg = "stopping server...\n";
+            send_message_string(cli_socket, stop_msg);
+            free(io_buff);
+            return OK_EXIT;
+        }
+        
+        // Build command list from input
+        memset(&cmd_list, 0, sizeof(command_list_t));
+        rc = build_cmd_list(io_buff, &cmd_list);
+        
+        // Handle parsing errors
+        if (rc == WARN_NO_CMDS) {
+            send_message_string(cli_socket, CMD_WARN_NO_CMD);
+            continue;
+        } else if (rc == ERR_TOO_MANY_COMMANDS) {
+            char error_msg[100];
+            sprintf(error_msg, CMD_ERR_PIPE_LIMIT, CMD_MAX);
+            send_message_string(cli_socket, error_msg);
+            continue;
+        } else if (rc != OK) {
+            char error_msg[100];
+            sprintf(error_msg, "Error parsing command: %d\n", rc);
+            send_message_string(cli_socket, error_msg);
+            continue;
+        }
+        
+        // Execute command pipeline
+        cmd_rc = rsh_execute_pipeline(cli_socket, &cmd_list);
+        
+        // Send EOF to indicate command completion
+        rc = send_message_eof(cli_socket);
+        if (rc != OK) {
+            printf(CMD_ERR_RDSH_COMM);
+            free(io_buff);
+            free_cmd_list(&cmd_list);
+            return ERR_RDSH_COMMUNICATION;
+        }
+        
+        // Free command list resources
+        free_cmd_list(&cmd_list);
+        
+        // Check for special built-in command results
+        if (cmd_rc == EXIT_SC) {
+            free(io_buff);
+            return OK_EXIT;
+        }
+    }
+
     // Should never reach here, but clean up just in case
     free(io_buff);
     return OK;
