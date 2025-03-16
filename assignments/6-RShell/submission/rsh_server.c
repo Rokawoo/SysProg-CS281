@@ -305,19 +305,17 @@ void *handle_client(void *arg) {
     // Update active client count
     pthread_mutex_lock(&g_client_mutex);
     g_active_clients--;
-    pthread_mutex_unlock(&g_client_mutex);
     
     // Check if server should exit
     if (rc == OK_EXIT) {
         // Signal the main thread to stop the server
-        pthread_mutex_lock(&g_client_mutex);
         printf(RCMD_MSG_SVR_STOP_REQ);
-        // Setting active clients to -1 signals the main thread to stop
-        g_active_clients = -1;
-        pthread_mutex_unlock(&g_client_mutex);
+        g_server_should_exit = 1;
     } else if (rc == OK) {
         printf(RCMD_MSG_CLIENT_EXITED);
     }
+    
+    pthread_mutex_unlock(&g_client_mutex);
     
     pthread_exit(NULL);
     return NULL;
