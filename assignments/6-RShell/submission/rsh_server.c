@@ -353,9 +353,26 @@ int send_message_eof(int cli_socket){
  *      ERR_RDSH_COMMUNICATION:  The send() socket call returned an error or if
  *           we were unable to send the message followed by the EOF character. 
  */
-int send_message_string(int cli_socket, char *buff){
-    //TODO implement writing to cli_socket with send()
-    return WARN_RDSH_NOT_IMPL;
+int send_message_string(int cli_socket, char *buff) {
+    ssize_t sent_len;
+    size_t msg_len;
+    
+    if (buff == NULL) {
+        return ERR_RDSH_COMMUNICATION;
+    }
+    
+    // Get message length
+    msg_len = strlen(buff);
+    
+    // Send the message
+    sent_len = send(cli_socket, buff, msg_len, 0);
+    if (sent_len < 0 || (size_t)sent_len != msg_len) {
+        printf(CMD_ERR_RDSH_SEND, (int)sent_len, (int)msg_len);
+        return ERR_RDSH_COMMUNICATION;
+    }
+    
+    // Send EOF character
+    return send_message_eof(cli_socket);
 }
 
 
