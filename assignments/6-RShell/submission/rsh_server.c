@@ -65,7 +65,7 @@ int start_server(char *ifaces, int port, int is_threaded) {
 
     svr_socket = boot_server(ifaces, port);
     if (svr_socket < 0) {
-        int err_code = svr_socket;  // server socket will carry error code
+        int err_code = svr_socket;
         return err_code;
     }
 
@@ -221,21 +221,21 @@ int process_cli_requests(int svr_socket) {
     pthread_t thread_id;
 
     while (1) {
+        // Check if we should stop the server
+        if (g_server_should_exit) {
+            return OK_EXIT;
+        }
+        
         // Accept connection from client
         cli_socket = accept(svr_socket, (struct sockaddr *)&client_addr, &client_len);
         if (cli_socket < 0) {
+            // If we were interrupted by a signal, check if server should exit
+            if (errno == EINTR && g_server_should_exit) {
+                return OK_EXIT;
+            }
             perror("accept");
             return ERR_RDSH_COMMUNICATION;
         }
-        
-        // Check if we should stop the server
-        pthread_mutex_lock(&g_client_mutex);
-        if (g_active_clients < 0) {
-            pthread_mutex_unlock(&g_client_mutex);
-            close(cli_socket);
-            return OK_EXIT;
-        }
-        pthread_mutex_unlock(&g_client_mutex);
         
         if (g_is_threaded) {
             // Handle client in a new thread
