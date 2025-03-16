@@ -201,16 +201,39 @@ int boot_server(char *ifaces, int port) {
  *                connections, and negative values terminate the server. 
  * 
  */
-int process_cli_requests(int svr_socket){
-    int     cli_socket;
-    int     rc = OK;    
+int process_cli_requests(int svr_socket) {
+    int cli_socket;
+    int rc = OK;
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
 
-    while(1){
-        // TODO use the accept syscall to create cli_socket 
-        // and then exec_client_requests(cli_socket)
+    while (1) {
+        // Accept connection from client
+        cli_socket = accept(svr_socket, (struct sockaddr *)&client_addr, &client_len);
+        if (cli_socket < 0) {
+            perror("accept");
+            return ERR_RDSH_COMMUNICATION;
+        }
+
+        // Process client requests
+        rc = exec_client_requests(cli_socket);
+        
+        // Close client socket
+        close(cli_socket);
+        
+        // Check if server should stop
+        if (rc == OK_EXIT) {
+            printf(RCMD_MSG_SVR_STOP_REQ);
+            break;
+        } else if (rc == OK) {
+            printf(RCMD_MSG_CLIENT_EXITED);
+        } else {
+            // Handle error
+            printf(CMD_ERR_RDSH_ITRNL, rc);
+            break;
+        }
     }
 
-    stop_server(cli_socket);
     return rc;
 }
 
