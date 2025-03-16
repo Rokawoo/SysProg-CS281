@@ -240,6 +240,41 @@ int process_cli_requests(int svr_socket) {
     return rc;
 }
 
+// Thread handler function for client requests
+void *handle_client(void *arg) {
+    int cli_socket = *((int *)arg);
+    int rc;
+    
+    // Free the socket pointer allocated in process_cli_requests
+    free(arg);
+    
+    // Execute client requests
+    rc = exec_client_requests(cli_socket);
+    
+    // Close the client socket
+    close(cli_socket);
+    
+    // Update active client count
+    pthread_mutex_lock(&g_client_mutex);
+    g_active_clients--;
+    pthread_mutex_unlock(&g_client_mutex);
+    
+    // Check if server should exit
+    if (rc == OK_EXIT) {
+        // Signal the main thread to stop the server
+        pthread_mutex_lock(&g_client_mutex);
+        printf(RCMD_MSG_SVR_STOP_REQ);
+        // Setting active clients to -1 signals the main thread to stop
+        g_active_clients = -1;
+        pthread_mutex_unlock(&g_client_mutex);
+    } else if (rc == OK) {
+        printf(RCMD_MSG_CLIENT_EXITED);
+    }
+    
+    pthread_exit(NULL);
+    return NULL;
+}
+
 /*
  * exec_client_requests(cli_socket)
  *      cli_socket:  The server-side socket that is connected to the client
