@@ -18,6 +18,9 @@
 #include "dshlib.h"
 #include "rshlib.h"
 
+// Function prototype for handle_client
+void *handle_client(void *arg);
+
 // Global variables for threaded server
 int g_is_threaded = 0;  // Flag indicating if server is threaded
 pthread_mutex_t g_client_mutex = PTHREAD_MUTEX_INITIALIZER;  // Mutex for thread safety
