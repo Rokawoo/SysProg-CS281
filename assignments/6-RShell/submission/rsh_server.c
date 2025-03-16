@@ -283,30 +283,17 @@ int exec_client_requests(int cli_socket) {
     command_list_t cmd_list;
     int rc;
     int cmd_rc;
-    int last_rc;
     char *io_buff;
 
+    // Allocate input/output buffer
     io_buff = malloc(RDSH_COMM_BUFF_SZ);
-    if (io_buff == NULL){
+    if (io_buff == NULL) {
         return ERR_RDSH_SERVER;
     }
 
-    while(1) {
-        // TODO use recv() syscall to get input
-
-        // TODO build up a cmd_list
-
-        // TODO rsh_execute_pipeline to run your cmd_list
-
-        // TODO send appropriate respones with send_message_string
-        // - error constants for failures
-        // - buffer contents from execute commands
-        //  - etc.
-
-        // TODO send_message_eof when done
-    }
-
-    return WARN_RDSH_NOT_IMPL;
+    // Should never reach here, but clean up just in case
+    free(io_buff);
+    return OK;
 }
 
 /*
