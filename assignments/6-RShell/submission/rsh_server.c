@@ -18,6 +18,7 @@
 #include "rshlib.h"
 
 
+
 /*
  * start_server(ifaces, port, is_threaded)
  *      ifaces:  a string in ip address format, indicating the interface
@@ -484,25 +485,180 @@ int send_message_string(int cli_socket, char *buff) {
 int rsh_execute_pipeline(int cli_sock, command_list_t *clist) {
     int pipes[clist->num - 1][2];  // Array of pipes
     pid_t pids[clist->num];
-    int  pids_st[clist->num];         // Array to store process IDs
+    int pids_st[clist->num];      // Array to store process status
     Built_In_Cmds bi_cmd;
     int exit_code;
 
+    // Check for empty command list
+    if (clist == NULL || clist->num == 0) {
+        return WARN_NO_CMDS;
+    }
+    
+    // For single command (no pipeline)
+    if (clist->num == 1) {
+        // Check for built-in commands
+        bi_cmd = rsh_built_in_cmd(&clist->commands[0]);
+        
+        if (bi_cmd == BI_CMD_EXIT) {
+            return EXIT_SC;
+        } else if (bi_cmd == BI_CMD_STOP_SVR) {
+            return STOP_SERVER_SC;
+        } else if (bi_cmd == BI_EXECUTED) {
+            // Built-in command was executed
+            return OK;
+        }
+        
+        // Non-built-in command, execute using fork/exec
+        pid_t pid = fork();
+        
+        if (pid < 0) {
+            // Fork failed
+            perror("fork");
+            return ERR_RDSH_CMD_EXEC;
+        } else if (pid == 0) {
+            // Child process
+            
+            // Set up redirection
+            if (clist->commands[0].input_file == NULL) {
+                // No input redirection, use socket for stdin
+                dup2(cli_sock, STDIN_FILENO);
+            } else {
+                // Input redirection from file
+                int fd = open(clist->commands[0].input_file, O_RDONLY);
+                if (fd < 0) {
+                    perror(clist->commands[0].input_file);
+                    exit(EXIT_FAILURE);
+                }
+                dup2(fd, STDIN_FILENO);
+                close(fd);
+            }
+            
+            if (clist->commands[0].output_file == NULL) {
+                // No output redirection, use socket for stdout and stderr
+                dup2(cli_sock, STDOUT_FILENO);
+                dup2(cli_sock, STDERR_FILENO);
+            } else {
+                // Output redirection to file
+                int flags = O_WRONLY | O_CREAT;
+                if (clist->commands[0].append_mode) {
+                    flags |= O_APPEND;
+                } else {
+                    flags |= O_TRUNC;
+                }
+                
+                int fd = open(clist->commands[0].output_file, flags, 0644);
+                if (fd < 0) {
+                    perror(clist->commands[0].output_file);
+                    exit(EXIT_FAILURE);
+                }
+                dup2(fd, STDOUT_FILENO);
+                close(fd);
+                
+                // Redirect stderr to socket
+                dup2(cli_sock, STDERR_FILENO);
+            }
+            
+            // Execute command
+            execvp(clist->commands[0].argv[0], clist->commands[0].argv);
+            
+            // If we get here, execvp failed
+            perror(clist->commands[0].argv[0]);
+            exit(EXIT_FAILURE);
+        } else {
+            // Parent process
+            int status;
+            waitpid(pid, &status, 0);
+            
+            return WEXITSTATUS(status);
+        }
+    }
+
+    // Multiple commands - need pipes
+    
     // Create all necessary pipes
     for (int i = 0; i < clist->num - 1; i++) {
         if (pipe(pipes[i]) == -1) {
             perror("pipe");
-            exit(EXIT_FAILURE);
+            return ERR_RDSH_CMD_EXEC;
         }
     }
 
+    // Fork processes for each command
     for (int i = 0; i < clist->num; i++) {
-        // TODO this is basically the same as the piped fork/exec assignment, except for where you connect the begin and end of the pipeline (hint: cli_sock)
-
-        // TODO HINT you can dup2(cli_sock with STDIN_FILENO, STDOUT_FILENO, etc.
-
+        // Check if first command is built-in
+        if (i == 0) {
+            bi_cmd = rsh_match_command(clist->commands[i].argv[0]);
+            if (bi_cmd != BI_NOT_BI) {
+                // Built-in commands don't support piping
+                char error_msg[] = "Built-in commands don't support piping\n";
+                write(cli_sock, error_msg, strlen(error_msg));
+                
+                // Close all pipes
+                for (int j = 0; j < clist->num - 1; j++) {
+                    close(pipes[j][0]);
+                    close(pipes[j][1]);
+                }
+                
+                return ERR_RDSH_CMD_EXEC;
+            }
+        }
+        
+        // Fork child process
+        pids[i] = fork();
+        
+        if (pids[i] < 0) {
+            // Fork failed
+            perror("fork");
+            
+            // Close all pipes
+            for (int j = 0; j < clist->num - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+            
+            // Kill any already created children
+            for (int j = 0; j < i; j++) {
+                kill(pids[j], SIGTERM);
+                waitpid(pids[j], NULL, 0);
+            }
+            
+            return ERR_RDSH_CMD_EXEC;
+        } else if (pids[i] == 0) {
+            // Child process
+            
+            // Set up stdin from previous pipe or socket (for first command)
+            if (i == 0) {
+                // First command gets input from socket
+                dup2(cli_sock, STDIN_FILENO);
+            } else {
+                // Other commands get input from previous pipe
+                dup2(pipes[i - 1][0], STDIN_FILENO);
+            }
+            
+            // Set up stdout to next pipe or socket (for last command)
+            if (i == clist->num - 1) {
+                // Last command outputs to socket
+                dup2(cli_sock, STDOUT_FILENO);
+                dup2(cli_sock, STDERR_FILENO);
+            } else {
+                // Other commands output to next pipe
+                dup2(pipes[i][1], STDOUT_FILENO);
+            }
+            
+            // Close all pipe file descriptors
+            for (int j = 0; j < clist->num - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+            
+            // Execute command
+            execvp(clist->commands[i].argv[0], clist->commands[i].argv);
+            
+            // If execvp returns, there was an error
+            perror(clist->commands[i].argv[0]);
+            exit(EXIT_FAILURE);
+        }
     }
-
 
     // Parent process: close all pipe ends
     for (int i = 0; i < clist->num - 1; i++) {
@@ -515,15 +671,16 @@ int rsh_execute_pipeline(int cli_sock, command_list_t *clist) {
         waitpid(pids[i], &pids_st[i], 0);
     }
 
-    //by default get exit code of last process
-    //use this as the return value
+    // Get exit code from last command
     exit_code = WEXITSTATUS(pids_st[clist->num - 1]);
+    
+    // Check for special exit codes
     for (int i = 0; i < clist->num; i++) {
-        //if any commands in the pipeline are EXIT_SC
-        //return that to enable the caller to react
-        if (WEXITSTATUS(pids_st[i]) == EXIT_SC)
+        if (WEXITSTATUS(pids_st[i]) == EXIT_SC) {
             exit_code = EXIT_SC;
+        }
     }
+    
     return exit_code;
 }
 
