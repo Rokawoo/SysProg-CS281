@@ -71,8 +71,12 @@ Built_In_Cmds rsh_match_command(const char *input);
 Built_In_Cmds rsh_built_in_cmd(cmd_buff_t *cmd);
 
 //eliminate from template, for extra credit
-void set_threaded_server(int val);
-int exec_client_thread(int main_socket, int cli_socket);
-void *handle_client(void *arg);
+// void set_threaded_server(int val);
+// int exec_client_thread(int main_socket, int cli_socket) {
+//     // This function isn't needed in our implementation since we handle
+//     // everything in handle_client, but we'll provide a stub for the API
+//     return exec_client_requests(cli_socket);
+// }
+// void *handle_client(void *arg);
 
 #endif

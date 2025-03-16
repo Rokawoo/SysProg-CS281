@@ -17,7 +17,11 @@
 #include "dshlib.h"
 #include "rshlib.h"
 
-
+// Global variables for threaded server
+int g_is_threaded = 0;  // Flag indicating if server is threaded
+pthread_mutex_t g_client_mutex = PTHREAD_MUTEX_INITIALIZER;  // Mutex for thread safety
+int g_active_clients = 0;  // Count of active client connections
+volatile int g_server_should_exit = 0;  // Flag to signal server shutdown
 
 /*
  * start_server(ifaces, port, is_threaded)
