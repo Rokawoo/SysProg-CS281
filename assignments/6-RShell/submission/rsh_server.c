@@ -10,9 +10,9 @@
 #include <fcntl.h>
 
 //INCLUDES for extra credit
-//#include <signal.h>
-//#include <pthread.h>
-//-------------------------
+#include <signal.h>
+#include <pthread.h>
+//------------------------- NOTE: EXTRA CREDIT IMPLEMENTED
 
 #include "dshlib.h"
 #include "rshlib.h"
@@ -47,25 +47,27 @@
  *      IF YOU IMPLEMENT THE MULTI-THREADED SERVER FOR EXTRA CREDIT YOU NEED
  *      TO DO SOMETHING WITH THE is_threaded ARGUMENT HOWEVER.  
  */
-int start_server(char *ifaces, int port, int is_threaded){
+int start_server(char *ifaces, int port, int is_threaded) {
     int svr_socket;
     int rc;
 
-    //
-    //TODO:  If you are implementing the extra credit, please add logic
-    //       to keep track of is_threaded to handle this feature
-    //
+    // Set up threading mode if requested
+    g_is_threaded = is_threaded;
+    if (g_is_threaded) {
+        printf("Starting server in threaded mode\n");
+    } else {
+        printf("Starting server in single-threaded mode\n");
+    }
 
     svr_socket = boot_server(ifaces, port);
-    if (svr_socket < 0){
-        int err_code = svr_socket;  //server socket will carry error code
+    if (svr_socket < 0) {
+        int err_code = svr_socket;  // server socket will carry error code
         return err_code;
     }
 
     rc = process_cli_requests(svr_socket);
 
     stop_server(svr_socket);
-
 
     return rc;
 }
