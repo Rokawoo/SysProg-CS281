@@ -1,9 +1,5 @@
 #!/usr/bin/env bats
 
-# File: student_tests.sh
-# 
-# Comprehensive test suite for Remote Shell (dsh)
-
 # Helper functions
 setup() {
     # Create test files and directories
@@ -17,21 +13,30 @@ setup() {
 }
 
 teardown() {
-    # Clean up test files and directories
-    rm -f test_file.txt
-    rm -rf test_dir
-
-    # Kill any lingering dsh server processes
+    # Kill any lingering server processes
     pkill -f "./dsh -s" || true
     sleep 1
+    
+    # Clean up test files and directories
+    rm -f test_file.txt remote_test_*.txt client*_output.txt server_output.log
+    rm -rf test_dir testdir
 }
 
 # Start server in background and return PID
 start_server() {
     local port=$1
-    ./dsh -s -p $port &
-    echo $!
+    timeout 10s ./dsh -s -p $port > server_output.log 2>&1 &
+    local pid=$!
     sleep 1  # Give server time to start
+    
+    # Check if server is still running
+    if ! ps -p $pid > /dev/null; then
+        cat server_output.log
+        echo "Server failed to start or exited prematurely"
+        return 1
+    fi
+    
+    echo $pid
 }
 
 # Basic tests for local shell mode
@@ -116,15 +121,24 @@ EOF
 
 # Server mode tests
 @test "Server mode: Start server" {
-    # Start server
-    SERVER_PID=$(start_server 5000)
+    # Start server with timeout and log output
+    timeout 5s ./dsh -s -p 5000 > server_output.log 2>&1 &
+    SERVER_PID=$!
+    
+    # Give server time to start
+    sleep 1
     
     # Check if server is running
-    ps -p $SERVER_PID
-    [ "$?" -eq 0 ]
+    if ! ps -p $SERVER_PID > /dev/null; then
+        cat server_output.log
+        echo "Server failed to start or exited prematurely"
+        false
+    fi
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
+    rm -f server_output.log
 }
 
 # Client mode tests with server running
@@ -132,14 +146,15 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5001)
     
-    # Run client
-    run ./dsh -c -p 5001 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5001 <<EOF
 ls
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -150,14 +165,15 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5002)
     
-    # Run client
-    run ./dsh -c -p 5002 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5002 <<EOF
 echo hello remote world
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -168,13 +184,14 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5003)
     
-    # Run client
-    run ./dsh -c -p 5003 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5003 <<EOF
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -185,8 +202,8 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5004)
     
-    # Run client
-    run ./dsh -c -p 5004 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5004 <<EOF
 stop-server
 EOF
     
@@ -200,14 +217,15 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5005)
     
-    # Run client
-    run ./dsh -c -p 5005 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5005 <<EOF
 echo hello remote world | grep remote
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -218,14 +236,15 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5006)
     
-    # Run client
-    run ./dsh -c -p 5006 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5006 <<EOF
 echo -e "line1\nline2\nline3" | grep line | wc -l
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -236,8 +255,8 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5007)
     
-    # Run client
-    run ./dsh -c -p 5007 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5007 <<EOF
 cd test_dir
 ls
 cd ..
@@ -245,7 +264,8 @@ exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -256,14 +276,15 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5008)
     
-    # Run client
-    run ./dsh -c -p 5008 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5008 <<EOF
 find . -name "*.txt" | grep test | sort
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -274,8 +295,8 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5009)
     
-    # Run client
-    run ./dsh -c -p 5009 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5009 <<EOF
 echo "Command 1"
 echo "Command 2"
 echo "Command 3"
@@ -283,7 +304,8 @@ exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -296,7 +318,7 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5010)
     
-    # Run client (with a sleep command and then another command to verify the shell doesn't block)
+    # Run client with timeout
     run timeout 5s ./dsh -c -p 5010 <<EOF
 sleep 2 &
 echo "Should run immediately"
@@ -304,7 +326,8 @@ exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -315,14 +338,15 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5011)
     
-    # Run client
-    run ./dsh -c -p 5011 <<EOF
+    # Run client with timeout
+    run timeout 10s ./dsh -c -p 5011 <<EOF
 yes "large output test" | head -n 1000
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output - we just check that there's a lot of output
     [ "$status" -eq 0 ]
@@ -336,12 +360,19 @@ EOF
     fi
     
     # Start threaded server
-    ./dsh -s -p 5012 -x &
+    timeout 15s ./dsh -s -p 5012 -x > server_output.log 2>&1 &
     SERVER_PID=$!
     sleep 1
     
+    # Check if server is running
+    if ! ps -p $SERVER_PID > /dev/null; then
+        cat server_output.log
+        echo "Threaded server failed to start"
+        false
+    fi
+    
     # Run first client in background
-    ./dsh -c -p 5012 <<EOF > client1_output.txt &
+    timeout 10s ./dsh -c -p 5012 <<EOF > client1_output.txt &
 echo "Client 1"
 sleep 3
 echo "Client 1 again"
@@ -350,7 +381,7 @@ EOF
     CLIENT1_PID=$!
     
     # Run second client
-    ./dsh -c -p 5012 <<EOF > client2_output.txt &
+    timeout 10s ./dsh -c -p 5012 <<EOF > client2_output.txt &
 echo "Client 2"
 sleep 1
 echo "Client 2 again"
@@ -359,11 +390,12 @@ EOF
     CLIENT2_PID=$!
     
     # Wait for clients to finish
-    wait $CLIENT1_PID
-    wait $CLIENT2_PID
+    wait $CLIENT1_PID 2>/dev/null || true
+    wait $CLIENT2_PID 2>/dev/null || true
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify outputs
     [[ "$(cat client1_output.txt)" == *"Client 1"* ]]
@@ -372,7 +404,7 @@ EOF
     [[ "$(cat client2_output.txt)" == *"Client 2 again"* ]]
     
     # Clean up
-    rm -f client1_output.txt client2_output.txt
+    rm -f client1_output.txt client2_output.txt server_output.log
 }
 
 @test "Remote shell: Server stability with rapid client connections" {
@@ -381,7 +413,7 @@ EOF
     
     # Connect and disconnect rapidly 5 times
     for i in {1..5}; do
-        ./dsh -c -p 5013 <<EOF
+        timeout 5s ./dsh -c -p 5013 <<EOF
 echo "Quick client $i"
 exit
 EOF
@@ -392,13 +424,14 @@ EOF
     [ "$?" -eq 0 ]
     
     # Connect once more to test functionality
-    run ./dsh -c -p 5013 <<EOF
+    run timeout 5s ./dsh -c -p 5013 <<EOF
 echo "Final test"
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -409,14 +442,15 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5014)
     
-    # Run client with incomplete pipe
-    run ./dsh -c -p 5014 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5014 <<EOF
 echo hello |
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Server should handle this gracefully
     [ "$status" -eq 0 ]
@@ -426,14 +460,15 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5015)
     
-    # Run client
-    run ./dsh -c -p 5015 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5015 <<EOF
 dragon
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output contains dragon ASCII art
     [ "$status" -eq 0 ]
@@ -444,15 +479,16 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5016)
     
-    # Run client
-    run ./dsh -c -p 5016 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5016 <<EOF
 false
 rc
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output shows non-zero return code
     [ "$status" -eq 0 ]
@@ -466,14 +502,15 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5017)
     
-    # Run client
-    run ./dsh -c -p 5017 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5017 <<EOF
 cat < remote_test_input.txt
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Clean up
     rm -f remote_test_input.txt
@@ -487,15 +524,16 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5018)
     
-    # Run client
-    run ./dsh -c -p 5018 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5018 <<EOF
 echo "remote redirected output" > remote_test_output.txt
 cat remote_test_output.txt
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -509,14 +547,15 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5019)
     
-    # Run client with a non-existent command
-    run ./dsh -c -p 5019 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5019 <<EOF
 nonexistentcommand
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify the error is handled gracefully
     [ "$status" -eq 0 ]
@@ -527,14 +566,15 @@ EOF
     # Start server on non-default port
     SERVER_PID=$(start_server 6789)
     
-    # Run client connecting to that port
-    run ./dsh -c -p 6789 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 6789 <<EOF
 echo "Custom port test"
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
@@ -545,15 +585,16 @@ EOF
     # Start server
     SERVER_PID=$(start_server 5020)
     
-    # Run client
-    run ./dsh -c -p 5020 <<EOF
+    # Run client with timeout
+    run timeout 5s ./dsh -c -p 5020 <<EOF
 export TESTVAR="environment variable test"
 echo \$TESTVAR
 exit
 EOF
     
     # Kill server
-    kill $SERVER_PID
+    kill $SERVER_PID || true
+    wait $SERVER_PID 2>/dev/null || true
     
     # Verify output
     [ "$status" -eq 0 ]
